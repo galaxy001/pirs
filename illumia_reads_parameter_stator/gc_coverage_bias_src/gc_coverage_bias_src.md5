@@ -1,0 +1,10 @@
+e0ef280b60477f828bff8d0653dc4e9c *gc_coverage_bias_plot
+f46ab3f10df5b1bafddbdaa8ab6aa98b *gcdeptest.depth.gz
+4e75153e20be6458c76f70d69ef37088 *gcdeptestref.fa.gz
+5b5802c73341407e7107dc262bc22880 *gzstream.cpp
+99d59b3af2c3974f943e118556645888 *gzstream.h
+4767aa3104568b631a92f05f44bb8253 *main.cpp
+ee16b436499ae319f68f9ae62b3141ce *self_util.cpp
+6e4b613a0fe4cf576425f9f634e1b4b1 *self_util.h
+240666435147a9208fb324b4e8a57a4f *stat_soap_coverage.cpp
+f93557e020c64b1b6cb9507c23dca74f *stat_soap_coverage.h
