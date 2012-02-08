@@ -66,7 +66,7 @@ our $help=<<EOH;
 \t-r ref fasta file (./ref/human.fa) [.{gz,bz2} is OK]
 \t-s trim SNP positions from (<filename>) in format /^ChrID\\tPos/
 \t-l read length of reads (100)
-\t-o output prefix (./matrix).{count,ratio}.matrix
+\t-o output prefix (./matrix).{count,ratio}.matrix and .info
 \t-c ChrID list (./chrtouse)
 \t-b No pause for batch runs
 For gzipped files, use zcat and pipe(|).
@@ -143,8 +143,24 @@ sub getBases($$$) {
 
 my $READLEN=$opt_l;
 my $MaxQ=40;
+my $MinQ=3;
 my $MisBase=0;
+my $CountGridSampledOK_MinValue = 100;
+my @SuggestGSPercent = (90, 5, 3);
 
+my $TotalGrid = 16 * $READLEN * ($MaxQ -$MinQ + 1);
+=pod
+http://en.wikipedia.org/wiki/FASTQ_format#Encoding
+ S - Sanger        Phred+33,  raw reads typically (0, 40)
+ X - Solexa        Solexa+64, raw reads typically (-5, 40)
+ I - Illumina 1.3+ Phred+64,  raw reads typically (0, 40)
+ J - Illumina 1.5+ Phred+64,  raw reads typically (3, 40)
+    with 0=unused, 1=unused, 2=Read Segment Quality Control Indicator (bold) 
+    (Note: See discussion above).
+ L - Illumina 1.8+ Phred+33,  raw reads typically (0, 41)
+
+Only J supported now.
+=cut
 my ($TotalBase,$TotalReads,%BaseCountTypeRef);
 my ($mapBase,$mapReads,$QBbase,$QBmis)=(0,0,0,0);
 my $Qascii=33;  # Sam 33, Soap 64.
@@ -287,6 +303,21 @@ if ($type eq 'sam') {
 
 open OA,'>',$opt_o.'.count.matrix' or die "Error: $!\n";
 open OB,'>',$opt_o.'.ratio.matrix' or die "Error: $!\n";
+open OI,'>',$opt_o.'.info' or die "Error: $!\n";
+my ($CountGridOK,$CountGridPoor,$CountGridZero,%CountGridSampled)=(0,0,0);
+
+sub toCountGridSampled($) {
+	my $c=$_[0];
+	if ($c==0) {
+		++$CountGridZero;
+	} elsif ($c < $CountGridSampledOK_MinValue) {
+		++$CountGridPoor;
+	} else {
+		++$CountGridOK;
+	}
+	++$CountGridSampled{$c};
+}
+
 my $tmp;
 chomp(my $user=`id -nru`);
 @ARGV=('/etc/passwd');
@@ -301,6 +332,7 @@ my $Cycle=2*$READLEN;
 my $Qcount=$MaxQ+1;
 $TotalBase=-1 unless $TotalBase;
 my $MisRate=100*$MisBase/$TotalBase;
+print OI "Profile Name: ${opt_o}.(count|ratio).matrix, Generate @ $date by ${user}$mail .\n\n";
 $tmp="#Generate @ $date by ${user}$mail
 #Input [$type] file of mapped Reads: $mapReads , mapped Bases $mapBase (no base stat for sam files)
 #Total statistical Bases: $TotalBase , Reads: $TotalReads of ReadLength $READLEN
@@ -334,11 +366,12 @@ for my $ref (@BaseOrder) {
                     $count=$Stat{$ref}{$cycle}{$base}{$q};
                 } else {$count=0;}
                 push @Counts,$count;
+                &toCountGridSampled($count) if $q >= $MinQ;
             }
         }
         $countsum=0;
         $countsum += $_ for @Counts;
-		$countsum=-1 if $countsum==0;
+        $countsum=-1 if $countsum==0;
         push @Rates,$_/$countsum for @Counts;
         print OA join("\t",@Counts,$countsum),"\n";
         print OB join("\t",@Rates),"\n";
@@ -346,6 +379,21 @@ for my $ref (@BaseOrder) {
 }
 close OA;
 close OB;
+print OI "Total_Grid: $TotalGrid
+Sampling_Thresholds: $CountGridSampledOK_MinValue
+Sampled_Enough: $CountGridOK (",int(100*$CountGridOK/$TotalGrid)/100,"%), should be > $SuggestGSPercent[0] %
+Sampled_Poor: $CountGridPoor (",int(100*$CountGridPoor/$TotalGrid)/100,"%) should be < $SuggestGSPercent[1] %
+Empty_Grid: $CountGridZero (",int(100*$CountGridZero/$TotalGrid)/100,"%) should be < $SuggestGSPercent[2] %
+\n";
+if ($CountGridPoor) {
+	print OI "[Poor Sampling Histogram]\n";
+	for (1 .. $CountGridSampledOK_MinValue) {
+		next unless exists $CountGridSampled{$_};
+		print OI "$_\t$CountGridSampled{$_}\n";
+	}
+}
+print OI "\nYou may need to supply more data to get a better profile.\n" if 100 * $CountGridOK < $SuggestGSPercent[0];
+close OI;
 #END
 my $stop_time = [gettimeofday];
 
