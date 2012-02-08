@@ -1,0 +1,24 @@
+set title ""
+unset key
+set tic scale 0
+
+set term png font "/export/data0/Fonts/win7/arial.ttf" 48 size 2102,1576 truecolor linewidth 3
+set output "ifollowQplot.png"
+
+# Color runs from white to green
+set palette rgbformula 34,35,36
+set cbrange [0:0.2]
+set cblabel "Ratio 0~0.2"
+unset cbtics
+
+set xrange [1:41]
+set yrange [1:41]
+
+set view map
+
+set xlabel "Following Q"
+set ylabel "Leading Q"
+
+plot 'tmp' using 2:1:3 with image
+
+
