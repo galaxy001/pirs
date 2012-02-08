@@ -1,0 +1,16 @@
+*.bak
+*.md5
+# Ignore objects and archives.
+*.[oa]
+*.gch
+*.[0-9]
+*~
+.svn/
+blib/
+simulate_diploid_genome
+simulate_illumina_reads
+gc_coverage_bias
+gc_coverage_bias_plot
+baseCalling_Matrix_analyzer
+baseCalling_Matrix_calculator
+baseCalling_Matrix_merger
