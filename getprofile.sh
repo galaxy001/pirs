@@ -1,1 +1,0 @@
-illumia_reads_parameter_stator/getprofile.sh

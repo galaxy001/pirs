@@ -6,9 +6,9 @@ Dimensions of error profile:
        Quality_num: 41
        70bp reads total average error rate: 0.00205113
 Start to construct simulation matrix...
-Loading file: ./../Profiles/Base-calling_profile/hum20110701.bwanosnp.count.matrix
+Loading file: ../Profiles/Base-calling_profile/hum20110701.bwanosnp.count.matrix
 Have finished constructing Base-calling simulation matrix
-Loading the GC bias profile: ./../Profiles/GC-depth_profile/gcdep150.txt
+Loading the GC bias profile: ../Profiles/GC-depth_profile/gcdep150.txt
 GC%:0	0.00483672
 GC%:1	0.0066985
 GC%:2	0.00907455
