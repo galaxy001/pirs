@@ -4,14 +4,14 @@
 # Using Soap2
 ./soap2.22 -a ./testA/testA_1.fq.gz -b ./testA/testA_2.fq.gz -D ./ref/human.fa.index -o ./soap/testA.soap -2 ./soap/testA.single -p 6 -t -s 40 -l 32 -m 600 -x 720 -v 5 -g 0 2>./soap/testA.log
 
-./baseCalling_Matrix_calculator.pl -r ./ref/human.fa -l 91 -o BCpftestAsoap -b ./soap/testA.soap
+./baseCalling_Matrix_calculator -r ./ref/human.fa -l 91 -o BCpftestAsoap -b ./soap/testA.soap
 
 # Or Using BWA
 ./bwa aln -I -t 4 ./bwaref/human.fa ./testA/testA_1.fq.gz > ./sam/testA_2_1.sai 2>> ./sam/testA_sai_1.log
 ./bwa aln -I -t 4 ./bwaref/human.fa ./testA/testA_2.fq.gz > ./sam/testA_2_2.sai 2>> ./sam/testA_sai_2.log
 ./bwa sampe -a 1000 ./bwaref/human.fa ./sam/testA_2_1.sai ./sam/testA_2_2.sai ./testA/testA_1.fq.gz ./testA/testA_2.fq.gz >./sam/testA.sam 2>./sam/testA.sam.log
 
-./baseCalling_Matrix_calculator.pl -r ./ref/human.fa -l 91 -o BCpftestAbwa -b ./sam/testA.sam
+./baseCalling_Matrix_calculator -r ./ref/human.fa -l 91 -o BCpftestAbwa -b ./sam/testA.sam
 
 
 

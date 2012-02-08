@@ -40,9 +40,9 @@
     simulate_illumina_reads: use for simulatingIllumina data, output PE-read file.
     Note:
       a) If you only want to simulate the diploid genome sequence, "simulate_diploid_genome" is enough.
-      b) If you want to simulate sequencing data of haploid genome, only you need is "simulate_Illumina_reads".
+      b) If you want to simulate sequencing data of haploid genome, only you need is "simulate_illumina_reads".
       c) If you want to simulate sequencing data of diploid genome, you first need to run "simu-late_diploid_genome" 
-         to get the other diploid genome sequence, and then run "simulate_Illumina_reads" using both the original 
+         to get the other diploid genome sequence, and then run "simulate_illumina_reads" using both the original 
          genome sequence and the previous output sequence as the input.
 
 3 Usage
@@ -59,7 +59,7 @@
       -o <string> output prefix (default=ref_sequence)
       -h          output help information and exit
       
-  3.2 simulate_Illumina_reads
+  3.2 simulate_illumina_reads
     Simulate sequencing data of Illumina sequencing platform
     
     Usage：simulate_illumina_reads [OPTIONS]
@@ -95,7 +95,7 @@
       e) simulate_seq.o, simulate_seq.e: records of the program running information.
   4.2 Simulation result of Illumina sequencing data for haploid genome.
     Example command line:
-    simulate_Illumina_reads -iHuman_ref.fa -m 170 -l 90 -x 5 -v 10 -o Hu-man>simulate_170.o 2>simulate_170.e
+    simulate_illumina_reads -iHuman_ref.fa -m 170 -l 90 -x 5 -v 10 -o Hu-man>simulate_170.o 2>simulate_170.e
     Output files:
       a) Human_90_170_1.fq.gz, Human_90_170_2.fq.gz: the pair-end read files.
       b) Human_90_170.error_rate.distr: the error distribution file.
@@ -103,7 +103,7 @@
       d) simulate_170.o, simulate_170.e: records of the program running information.
   4.3 Simulation result ofIllumina sequencing data for diploid genome.
     Example command line:
-    simulate_Illumina_reads -i Human_ref.fa -I Human.snp.indel.invertion.fa.gz -m 800 -l 70 -x 5 -v 10 
+    simulate_illumina_reads -i Human_ref.fa -I Human.snp.indel.invertion.fa.gz -m 800 -l 70 -x 5 -v 10 
                             -o Human >simulate_800.o 2>simulate_800.e
     Output files:
       a) Human_70_800_1.fq.gz, Human_70_800_2.fq.gz: the pair-end read files.
