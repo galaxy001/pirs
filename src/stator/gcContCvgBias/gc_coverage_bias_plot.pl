@@ -52,8 +52,11 @@ if ($user eq 'galaxy') {
     $gnuplot='gnuplot';
     $font='/home/galaxy/fonts/arial.ttf';
 } else {
-    $gnuplot='/opt/blc/genome/biosoft/gnuplot-4.4.0/bin/gnuplot';
+    #$gnuplot='/opt/blc/genome/biosoft/gnuplot-4.4.0/bin/gnuplot';
     $font='/ifs1/ST_ASMB/USER/huxuesong/public/fonts/arial.ttf';
+    $gnuplot='gnuplot';
+    chomp(my @ttfile=`locate arial.ttf`);
+    $font = $ttfile[0] if @ttfile;
 }
 open P,'>',$name.'.dem' or die "Error openimg $name.dem: $!\n";
 my $yrange='#set yrange [0:10]';
