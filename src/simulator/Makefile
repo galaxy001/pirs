@@ -7,4 +7,4 @@ simulate_illumina_reads: simulate_illumina_reads.cpp simulate.cpp load_file.cpp 
 	g++ -std=c++0x -O3 -static -o $@ $^ -lz
 
 clean:
-	rm simulate_diploid_genome simulate_illumina_reads
+	-rm simulate_diploid_genome simulate_illumina_reads

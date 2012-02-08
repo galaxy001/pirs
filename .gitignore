@@ -14,3 +14,5 @@ gc_coverage_bias_plot
 baseCalling_Matrix_analyzer
 baseCalling_Matrix_calculator
 baseCalling_Matrix_merger
+core
+core.*
