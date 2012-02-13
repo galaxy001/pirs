@@ -66,7 +66,7 @@ our $help=<<EOH;
 \t-r ref fasta file (./ref/human.fa) [.{gz,bz2} is OK]
 \t-s trim SNP positions from (<filename>) in format /^ChrID\\tPos/
 \t-l read length of reads (100)
-\t-o output prefix (./matrix).{count,ratio}.matrix and .info
+\t-o output prefix (./matrix).{count,Qtrans,ratio}.matrix and .info
 \t-c ChrID list (./chrtouse)
 \t-b No pause for batch runs
 For gzipped files, use zcat and pipe(|).
@@ -82,8 +82,9 @@ $opt_l=100 if ! $opt_l;
 die "[x]-r $opt_r not exists !\n" unless -f $opt_r;
 if ($opt_s) {die "[x]-s $opt_s not exists !\n" unless -f $opt_s;}
 
-print STDERR "From [@ARGV]($opt_p) of [$opt_l] with [$opt_r][$opt_s] to [$opt_o]\n";
+print STDERR "From [@ARGV]($opt_p) of [$opt_l] with [$opt_r] to [$opt_o]\n";
 print STDERR "ChrID list:[$opt_c]\n" if $opt_c;
+print STDERR "SNP skipping list:[$opt_s]\n" if $opt_s;
 unless ($opt_b) {print STDERR "Wait 3 seconds to continue...\n"; sleep 3;}
 
 my $start_time = [gettimeofday];
@@ -148,7 +149,6 @@ my $MisBase=0;
 my $CountGridSampledOK_MinValue = 100;
 my @SuggestGSPercent = (90, 5, 3);
 
-my $TotalGrid = 16 * $READLEN * ($MaxQ -$MinQ + 1);
 =pod
 http://en.wikipedia.org/wiki/FASTQ_format#Encoding
  S - Sanger        Phred+33,  raw reads typically (0, 40)
@@ -165,6 +165,7 @@ my ($TotalBase,$TotalReads,%BaseCountTypeRef);
 my ($mapBase,$mapReads,$QBbase,$QBmis)=(0,0,0,0);
 my $Qascii=33;  # Sam 33, Soap 64.
 my %Stat;   # $Stat{Ref}{Cycle}{Read}{Quality}
+my %MarkovStat;   # $Stat{Ref}{Cycle}{pre-Q}{Read}{Quality}
 sub statRead($$$$$) {
     my ($ref,$isReverse,$read,$Qstr,$cyclestart)=@_;
     if ($isReverse) {
@@ -173,6 +174,7 @@ sub statRead($$$$$) {
     }
     my $PEpos=-1;
     my $QBflag=0;
+    my $lastQ=-1;
     for (my $i=0;$i<$READLEN;$i++) {
         my $refBase=substr $ref,$i,1 or return;
         next unless $refBase =~ /^[ATCG]$/;
@@ -186,8 +188,15 @@ sub statRead($$$$$) {
         }
         if ($isReverse) {
             $PEpos=$cyclestart+$READLEN-1-$i;
+			if ($i < $READLEN-1) {
+				$lastQ = substr $Qstr,$i+1,1;
+				$lastQ=ord($lastQ)-$Qascii;
+				++$MarkovStat{$refBase}{$PEpos}{$lastQ}{$readBase}{$Qval};
+			}
         } else {
             $PEpos=$cyclestart+$i;
+			++$MarkovStat{$refBase}{$PEpos}{$lastQ}{$readBase}{$Qval} if $lastQ != -1;	# 1st cycle skipped
+			$lastQ = $Qval;
         }
         ++$Stat{$refBase}{$PEpos}{$readBase}{$Qval};
         if ($Qval <= 2) {
@@ -303,19 +312,20 @@ if ($type eq 'sam') {
 
 open OA,'>',$opt_o.'.count.matrix' or die "Error: $!\n";
 open OB,'>',$opt_o.'.ratio.matrix' or die "Error: $!\n";
+open OC,'>',$opt_o.'.Qtrans.matrix' or die "Error: $!\n";
 open OI,'>',$opt_o.'.info' or die "Error: $!\n";
-my ($CountGridOK,$CountGridPoor,$CountGridZero,%CountGridSampled)=(0,0,0);
+my (%CountGridOK,%CountGridPoor,%CountGridZero,%CountGridSampled);
 
-sub toCountGridSampled($) {
-	my $c=$_[0];
+sub toCountGridSampled($$) {
+	my ($c,$type)=@_;
 	if ($c==0) {
-		++$CountGridZero;
+		++$CountGridZero{$type};
 	} elsif ($c < $CountGridSampledOK_MinValue) {
-		++$CountGridPoor;
+		++$CountGridPoor{$type};
 	} else {
-		++$CountGridOK;
+		++$CountGridOK{$type};
 	}
-	++$CountGridSampled{$c};
+	++$CountGridSampled{$type}{$c};
 }
 
 my $tmp;
@@ -351,6 +361,7 @@ for my $base (@BaseOrder) {
 $tmp .= "\n#".join("\t",'Ref','Cycle',@BaseQ);
 print OA $tmp;
 print OB $tmp;
+print OC "[5Dmatrix]\n#".join("\t",'Ref','Cycle','pre1_Q',@BaseQ),"\tRowSum\n";
 print OA "\tRowSum";
 print OB "\n";
 my ($count,$countsum);
@@ -366,7 +377,7 @@ for my $ref (@BaseOrder) {
                     $count=$Stat{$ref}{$cycle}{$base}{$q};
                 } else {$count=0;}
                 push @Counts,$count;
-                &toCountGridSampled($count) if $q >= $MinQ;
+                &toCountGridSampled($count,'4D') if $q >= $MinQ;
             }
         }
         $countsum=0;
@@ -375,24 +386,61 @@ for my $ref (@BaseOrder) {
         push @Rates,$_/$countsum for @Counts;
         print OA join("\t",@Counts,$countsum),"\n";
         print OB join("\t",@Rates),"\n";
+		for my $preQ (sort {$a<=>$b} keys %{$MarkovStat{$ref}{$cycle}}) {
+			print OC "$ref\t$cycle\t$preQ\t";
+			@Counts=();
+			for my $base (@BaseOrder) {
+				for my $q (0..$MaxQ) {
+					if (exists $MarkovStat{$ref}{$cycle} and exists $MarkovStat{$ref}{$cycle}{$preQ} and exists $MarkovStat{$ref}{$cycle}{$preQ}{$base} and exists $MarkovStat{$ref}{$cycle}{$preQ}{$base}{$q}) {
+						$count=$MarkovStat{$ref}{$cycle}{$preQ}{$base}{$q};
+					} else {$count=0;}
+					push @Counts,$count;
+					&toCountGridSampled($count,'5D') if $q >= $MinQ;
+				}
+			}
+			$countsum=0;
+			$countsum += $_ for @Counts;
+			print OC join("\t",@Counts,$countsum),"\n";
+		}
     }
 }
 close OA;
 close OB;
-print OI "Total_Grid: $TotalGrid
-Sampling_Thresholds: $CountGridSampledOK_MinValue
-Sampled_Enough: $CountGridOK (",int(100*$CountGridOK/$TotalGrid)/100,"%), should be > $SuggestGSPercent[0] %
-Sampled_Poor: $CountGridPoor (",int(100*$CountGridPoor/$TotalGrid)/100,"%) should be < $SuggestGSPercent[1] %
-Empty_Grid: $CountGridZero (",int(100*$CountGridZero/$TotalGrid)/100,"%) should be < $SuggestGSPercent[2] %
-\n";
-if ($CountGridPoor) {
-	print OI "[Poor Sampling Histogram]\n";
-	for (1 .. $CountGridSampledOK_MinValue) {
-		next unless exists $CountGridSampled{$_};
-		print OI "$_\t$CountGridSampled{$_}\n";
-	}
+close OC;
+
+sub getValueNoNULL($) {
+	return $_[0] if defined $_[0];
+	return 0;
 }
-print OI "\nYou may need to supply more data to get a better profile.\n" if 100 * $CountGridOK < $SuggestGSPercent[0];
+
+my $TotalGrid = 1;
+my ($CountGridOK,$CountGridPoor,$CountGridZero);
+for $type (qw[ 4D 5D ]) {
+	$CountGridOK = getValueNoNULL($CountGridOK{$type});
+	$CountGridPoor = getValueNoNULL($CountGridPoor{$type});
+	$CountGridZero = getValueNoNULL($CountGridZero{$type});
+	#($CountGridOK,$CountGridPoor,$CountGridZero)=($CountGridOK{$type},$CountGridPoor{$type},$CountGridZero{$type});
+	if ($type eq '4D') {
+		$TotalGrid = 16 * 2 * $READLEN * ($MaxQ -$MinQ + 1);
+	} elsif ($type eq '5D') {
+		$TotalGrid = $CountGridOK+$CountGridPoor+$CountGridZero;
+	}
+	print OI "[$type]\nTotal_Grid: $TotalGrid
+	Sampling_Thresholds: $CountGridSampledOK_MinValue
+	Sampled_Enough: $CountGridOK (",int(10000*$CountGridOK/$TotalGrid)/100,"%), should be > $SuggestGSPercent[0] %
+	Sampled_Poor: $CountGridPoor (",int(10000*$CountGridPoor/$TotalGrid)/100,"%) should be < $SuggestGSPercent[1] %
+	Empty_Grid: $CountGridZero (",int(10000*$CountGridZero/$TotalGrid)/100,"%) should be < $SuggestGSPercent[2] %
+	\n";
+	if ($CountGridPoor) {
+		print OI "Poor Sampling Histogram:\n";
+		for (1 .. $CountGridSampledOK_MinValue) {
+			next unless exists $CountGridSampled{$type}{$_};
+			print OI "$_\t$CountGridSampled{$type}{$_}\n";
+		}
+	}
+	print OI "\nYou may need to supply more data to get a better profile.\n" if 100 * $CountGridOK < $SuggestGSPercent[0];
+	print OI "\n";
+}
 close OI;
 #END
 my $stop_time = [gettimeofday];
