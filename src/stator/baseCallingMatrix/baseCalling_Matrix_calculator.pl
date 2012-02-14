@@ -223,7 +223,7 @@ sub statRead($$$$$) {
 		$Read_num = 1;
 	}
     ++$TotalReads unless $PEpos==-1;
-	++$PlotReadsQavgHist{$Read_num}{int(0.5+2*$SumQ/$READLEN)/2};
+	++$PlotReadsQavgHist{$Read_num}{int(2*$SumQ/$READLEN)/2};	# 0 for [0,0.5]
 	++$PlotReadsQavgHist{$Read_num}{-1};
 }
 
