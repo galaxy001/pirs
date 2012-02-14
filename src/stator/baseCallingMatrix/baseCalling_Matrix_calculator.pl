@@ -166,6 +166,9 @@ my ($mapBase,$mapReads,$QBbase,$QBmis)=(0,0,0,0);
 my $Qascii=33;  # Sam 33, Soap 64.
 my %Stat;   # $Stat{Ref}{Cycle}{Read}{Quality}
 my %MarkovStat;   # $Stat{Ref}{Cycle}{pre-Q}{Read}{Quality}
+my %QTrans;   # $QTrans{Ref}{Cycle}{pre-Q}{Quality}, ?? NOT IN USE NOW
+my %PlotReadsQavgHist;   # $PlotReadsQavgHist{Read1,2}{Q(round to 0.5)}=count, -1 => Sum (Illumina Q>0, but maybe 0 after round)
+
 sub statRead($$$$$) {
     my ($ref,$isReverse,$read,$Qstr,$cyclestart)=@_;
     if ($isReverse) {
@@ -175,6 +178,7 @@ sub statRead($$$$$) {
     my $PEpos=-1;
     my $QBflag=0;
     my $lastQ=-1;
+	my $SumQ=0;
     for (my $i=0;$i<$READLEN;$i++) {
         my $refBase=substr $ref,$i,1 or return;
         next unless $refBase =~ /^[ATCG]$/;
@@ -198,6 +202,7 @@ sub statRead($$$$$) {
 			++$MarkovStat{$refBase}{$PEpos}{$lastQ}{$readBase}{$Qval} if $lastQ != -1;	# 1st cycle skipped
 			$lastQ = $Qval;
         }
+		$SumQ += $Qval;
         ++$Stat{$refBase}{$PEpos}{$readBase}{$Qval};
         if ($Qval <= 2) {
             $QBflag = 1;
@@ -211,7 +216,15 @@ sub statRead($$$$$) {
         ++$TotalBase;
 #print "$isReverse {$refBase}{$PEpos}{$readBase}{$Qval} ",($refBase eq $readBase)?'=':'x',"\n";
     }
+	my $Read_num;
+	if ($PEpos > $READLEN) {
+		$Read_num = 2;
+	} else {
+		$Read_num = 1;
+	}
     ++$TotalReads unless $PEpos==-1;
+	++$PlotReadsQavgHist{$Read_num}{int(0.5+2*$SumQ/$READLEN)/2};
+	++$PlotReadsQavgHist{$Read_num}{-1};
 }
 
 my $type;
@@ -406,6 +419,18 @@ for my $ref (@BaseOrder) {
 }
 close OA;
 close OB;
+
+print OC "<<END\n[AvgQonReads]
+#Total Quality values: $PlotReadsQavgHist{1}{-1}, $PlotReadsQavgHist{2}{-1}
+#Q\tRead_1\tRead_2\tRatio_1\tRatio_2\n";
+for my $q (0..2*$MaxQ) {
+	$PlotReadsQavgHist{1}{$q/2} = 0 unless exists $PlotReadsQavgHist{1}{$q/2};
+	$PlotReadsQavgHist{2}{$q/2} = 0 unless exists $PlotReadsQavgHist{2}{$q/2};
+	print OC join("\t",$q/2,$PlotReadsQavgHist{1}{$q/2},$PlotReadsQavgHist{2}{$q/2},
+		$PlotReadsQavgHist{1}{$q/2}/$PlotReadsQavgHist{1}{-1},
+		$PlotReadsQavgHist{2}{$q/2}/$PlotReadsQavgHist{2}{-1}),"\n";
+}
+print OC "<<END\n";
 close OC;
 
 sub getValueNoNULL($) {
