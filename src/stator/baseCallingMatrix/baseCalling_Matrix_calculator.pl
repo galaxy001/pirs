@@ -87,7 +87,7 @@ print STDERR "ChrID list:[$opt_c]\n" if $opt_c;
 print STDERR "SNP skipping list:[$opt_s]\n" if $opt_s;
 unless ($opt_b) {print STDERR "Wait 3 seconds to continue...\n"; sleep 3;}
 
-my $start_time = [gettimeofday];
+#my $start_time = [gettimeofday];
 #BEGIN
 
 my %Genome;
@@ -174,7 +174,14 @@ sub statRead($$$$$) {
     if ($isReverse) {
         $ref =~ tr/acgtrymkswhbvdnxACGTRYMKSWHBVDNX/tgcayrkmswdvbhnxTGCAYRKMSWDVBHNX/;
         $read =~ tr/acgtrymkswhbvdnxACGTRYMKSWHBVDNX/tgcayrkmswdvbhnxTGCAYRKMSWDVBHNX/;
+		$ref = scalar reverse $ref;
+		$read = scalar reverse $read;
+		$Qstr = scalar reverse $Qstr;
     }
+#	doTheStat($ref,$read,$Qstr,$cyclestart);
+#}
+#sub doTheStat($$$$) {
+#    my ($ref,$read,$Qstr,$cyclestart)=@_;
     my $PEpos=-1;
     my $QBflag=0;
     my $lastQ=-1;
@@ -190,18 +197,9 @@ sub statRead($$$$$) {
             $MaxQ=$Qval;
             warn "[!] Qval=$Qval($QstrSingle) > 40 found. Remember to add -I at bwa aln for Illumina reads !\n";
         }
-        if ($isReverse) {
-            $PEpos=$cyclestart+$READLEN-1-$i;
-			if ($i < $READLEN-1) {
-				$lastQ = substr $Qstr,$i+1,1;
-				$lastQ=ord($lastQ)-$Qascii;
-				++$MarkovStat{$refBase}{$PEpos}{$lastQ}{$readBase}{$Qval};
-			}
-        } else {
             $PEpos=$cyclestart+$i;
-			++$MarkovStat{$refBase}{$PEpos}{$lastQ}{$readBase}{$Qval} if $lastQ != -1;	# 1st cycle skipped
+			++$MarkovStat{$refBase}{$PEpos}{$lastQ}{$readBase}{$Qval} if $lastQ != -1 and substr ($read,$i-1,1 ne 'N');	# 1st cycle skipped; 1st can be 'N', so not $PEpos > 1
 			$lastQ = $Qval;
-        }
 		$SumQ += $Qval;
         ++$Stat{$refBase}{$PEpos}{$readBase}{$Qval};
         if ($Qval <= 2) {
@@ -262,6 +260,7 @@ if ($opt_p eq 'sam') {
 }
 LABEL:
 print "[!]Input file type is [$type].\n";
+my $start_time = [gettimeofday];
 
 #my ($RL1,$RL2)=(0,0);
 if ($type eq 'sam') {
@@ -364,22 +363,51 @@ $tmp="#Generate @ $date by ${user}$mail
 #QB_Bases: $QBbase, QB_Mismatches: $QBmis (bases with quality <= 2)
 #Reference Base Ratio in reads: ";
 my @BaseOrder=sort qw{A T C G}; # keys %BaseCountTypeRef;
+my $RBR;
 for (@BaseOrder) {
-    $tmp .= $_.' '. int(0.5+100*1000*$BaseCountTypeRef{$_}/$TotalBase)/1000 .' %;   ';
+    $RBR .= $_.' '. int(0.5+100*1000*$BaseCountTypeRef{$_}/$TotalBase)/1000 .' %;   ';
 }
+$tmp .= $RBR;
 my @BaseQ;
 for my $base (@BaseOrder) {
     push @BaseQ,"$base-$_" for (0..$MaxQ);
 }
-$tmp .= "\n#".join("\t",'Ref','Cycle',@BaseQ);
+$tmp .= "\n
+[Info]
+Type = Null
+Date = $date
+User = ${user}$mail
+FileType = $type
+ReadLength = $READLEN
+Ref_base_number = 4
+Cycle_number = $Cycle
+Seq_base_number = 4
+Quality_number = $Qcount
+Mismatch_rate = $MisRate %
+Reference_Base_Ratio = $RBR
+<<END
+
+[Stat]
+Type = 1
+MappedReads = $mapReads
+MappedBases = $mapBase
+UsedReads = $TotalReads
+UsedBase = $TotalBase
+MismatchBase = $MisBase
+QB_Bases = $QBbase
+QB_Mismatches = $QBmis
+<<END
+
+[4Dmatrix]
+Type = 2
+#".join("\t",'Ref','Cycle',@BaseQ);
 print OA $tmp;
 print OB $tmp;
-print OC "[5Dmatrix]\n#".join("\t",'Ref','Cycle','pre1_Q',@BaseQ),"\tRowSum\n";
-print OA "\tRowSum";
+print OA "\tRowSum\n";
 print OB "\n";
 my ($count,$countsum);
 for my $ref (@BaseOrder) {
-    print OA "\n";
+    #print OA "\n";
     for my $cycle (1..(2*$READLEN)) {
         $tmp="$ref\t$cycle\t";
         print OA $tmp; print OB $tmp;
@@ -399,9 +427,17 @@ for my $ref (@BaseOrder) {
         push @Rates,$_/$countsum for @Counts;
         print OA join("\t",@Counts,$countsum),"\n";
         print OB join("\t",@Rates),"\n";
+    }
+}
+print OA "<<END\n\n";
+print OA "[5Dmatrix]\nType = 3\n#".join("\t",'Ref','Cycle','pre1_Q',@BaseQ),"\tRowSum\n";
+print OB "<<END\n";
+
+for my $ref (@BaseOrder) {
+    for my $cycle (1..(2*$READLEN)) {
 		for my $preQ (sort {$a<=>$b} keys %{$MarkovStat{$ref}{$cycle}}) {
-			print OC "$ref\t$cycle\t$preQ\t";
-			@Counts=();
+			print OA "$ref\t$cycle\t$preQ\t";
+			my @Counts=();
 			for my $base (@BaseOrder) {
 				for my $q (0..$MaxQ) {
 					if (exists $MarkovStat{$ref}{$cycle} and exists $MarkovStat{$ref}{$cycle}{$preQ} and exists $MarkovStat{$ref}{$cycle}{$preQ}{$base} and exists $MarkovStat{$ref}{$cycle}{$preQ}{$base}{$q}) {
@@ -413,14 +449,16 @@ for my $ref (@BaseOrder) {
 			}
 			$countsum=0;
 			$countsum += $_ for @Counts;
-			print OC join("\t",@Counts,$countsum),"\n";
+			print OA join("\t",@Counts,$countsum),"\n";
 		}
     }
 }
+print OA "<<END\n";
+
 close OA;
 close OB;
 
-print OC "<<END\n[AvgQonReads]
+print OC "[AvgQonReads]
 #Total Quality values: $PlotReadsQavgHist{1}{-1}, $PlotReadsQavgHist{2}{-1}
 #Q\tRead_1\tRead_2\tRatio_1\tRatio_2\n";
 for my $q (0..2*$MaxQ) {
@@ -479,3 +517,4 @@ zcat bwamask/mask110621_I263_FCB066DABXX_L8_HUMjrmRACDKAAPEI-3.sam.gz|head -n200
 0.192234941 ms per line.
 Thus, for a LANE of 216009064 lines, which is (108004507 sequences)x2+50, 11.5345804648626 hours needed.
 
+./baseCalling_Matrix_calculator.pl -c chrtouse -b -o test2 t.sam
