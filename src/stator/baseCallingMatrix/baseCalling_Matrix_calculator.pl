@@ -197,17 +197,18 @@ sub statRead($$$$$) {
             $MaxQ=$Qval;
             warn "[!] Qval=$Qval($QstrSingle) > 40 found. Remember to add -I at bwa aln for Illumina reads !\n";
         }
-            $PEpos=$cyclestart+$i;
-			if ($lastQ != -1 and substr ($read,$i-1,1) ne 'N') {	# 1st cycle skipped; 1st can be 'N', so not $PEpos > 1
-				++$MarkovStat{$refBase}{$PEpos}{$lastQ}{$readBase}{$Qval};
-				++$QTrans{$refBase}{$PEpos}{$lastQ}{$Qval};
-			}
-			$lastQ = $Qval;
+		$PEpos=$cyclestart+$i;
+		if ($lastQ != -1) {	# 1st cycle skipped; 1st can be 'N', so not $PEpos > 1
+			++$MarkovStat{$refBase}{$PEpos}{$lastQ}{$readBase}{$Qval};
+			++$QTrans{$refBase}{$PEpos}{$lastQ}{$Qval};
+		}
+		$lastQ = $Qval;
 		$SumQ += $Qval;
         ++$Stat{$refBase}{$PEpos}{$readBase}{$Qval};
         if ($Qval <= 2) {
             $QBflag = 1;
             ++$QBbase;
+			$MinQ = $Qval if $MinQ > $Qval;	# well, if v1.8+, $MinQ can touch 0.
         }
         if ($refBase ne $readBase) {
             ++$MisBase;
@@ -433,9 +434,30 @@ for my $ref (@BaseOrder) {
     }
 }
 print OA "<<END\n\n";
-print OA "[5Dmatrix]\nType = 3\n#".join("\t",'Ref','Cycle','pre1_Q',@BaseQ),"\tRowSum\n";
-print OB "<<END\n";
 
+print OA "[QTrans]\nType = 3\n#",join("\t",'Ref','Cycle','pre1_Q',0..$MaxQ),"\tRowSum\n";
+for my $ref (@BaseOrder) {
+    for my $cycle (1..(2*$READLEN)) {
+		for my $preQ ($MinQ..$MaxQ) {
+			print OA "$ref\t$cycle\t$preQ\t";
+			my @Counts=();
+			for my $q (0..$MaxQ) {
+				if (exists $QTrans{$ref}{$cycle} and exists $QTrans{$ref}{$cycle}{$preQ} and exists $QTrans{$ref}{$cycle}{$preQ}{$q}) {
+					$count=$QTrans{$ref}{$cycle}{$preQ}{$q};
+				} else {$count=0;}
+				push @Counts,$count;
+				&toCountGridSampled($count,'QT') if $q >= $MinQ;
+			}
+			$countsum=0;
+			$countsum += $_ for @Counts;
+			print OA join("\t",@Counts,$countsum),"\n";
+		}
+    }
+}
+print OA "<<END\n\n";
+
+print OA "[5Dmatrix]\nType = 3\n#",join("\t",'Ref','Cycle','pre1_Q',@BaseQ),"\tRowSum\n";
+print OB "<<END\n";
 for my $ref (@BaseOrder) {
     for my $cycle (1..(2*$READLEN)) {
 		for my $preQ ($MinQ..$MaxQ) {
@@ -481,7 +503,7 @@ sub getValueNoNULL($) {
 
 my $TotalGrid = 1;
 my ($CountGridOK,$CountGridPoor,$CountGridZero);
-for $type (qw[ 4D 5D ]) {
+for $type (sort keys %CountGridSampled) {
 	$CountGridOK = getValueNoNULL($CountGridOK{$type});
 	$CountGridPoor = getValueNoNULL($CountGridPoor{$type});
 	$CountGridZero = getValueNoNULL($CountGridZero{$type});
