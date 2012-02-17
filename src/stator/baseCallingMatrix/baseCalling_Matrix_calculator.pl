@@ -66,7 +66,7 @@ our $help=<<EOH;
 \t-r ref fasta file (./ref/human.fa) [.{gz,bz2} is OK]
 \t-s trim SNP positions from (<filename>) in format /^ChrID\\tPos/
 \t-l read length of reads (100)
-\t-o output prefix (./matrix).{count,Qtrans,ratio}.matrix and .info
+\t-o output prefix (./matrix).{count,ratio}.matrix and .{stat,info}
 \t-c ChrID list (./chrtouse)
 \t-b No pause for batch runs
 For gzipped files, use zcat and pipe(|).
@@ -324,7 +324,7 @@ if ($type eq 'sam') {
 
 open OA,'>',$opt_o.'.count.matrix' or die "Error: $!\n";
 open OB,'>',$opt_o.'.ratio.matrix' or die "Error: $!\n";
-open OC,'>',$opt_o.'.Qtrans.matrix' or die "Error: $!\n";
+open OC,'>',$opt_o.'.stat' or die "Error: $!\n";
 open OI,'>',$opt_o.'.info' or die "Error: $!\n";
 my (%CountGridOK,%CountGridPoor,%CountGridZero,%CountGridSampled);
 
@@ -388,7 +388,7 @@ Reference_Base_Ratio = $RBR
 <<END
 
 [Stat]
-Type = 1
+Type = s1
 MappedReads = $mapReads
 MappedBases = $mapBase
 UsedReads = $TotalReads
@@ -435,7 +435,7 @@ print OB "<<END\n";
 
 for my $ref (@BaseOrder) {
     for my $cycle (1..(2*$READLEN)) {
-		for my $preQ (sort {$a<=>$b} keys %{$MarkovStat{$ref}{$cycle}}) {
+		for my $preQ ($MinQ..$MaxQ) {
 			print OA "$ref\t$cycle\t$preQ\t";
 			my @Counts=();
 			for my $base (@BaseOrder) {
