@@ -198,7 +198,10 @@ sub statRead($$$$$) {
             warn "[!] Qval=$Qval($QstrSingle) > 40 found. Remember to add -I at bwa aln for Illumina reads !\n";
         }
             $PEpos=$cyclestart+$i;
-			++$MarkovStat{$refBase}{$PEpos}{$lastQ}{$readBase}{$Qval} if $lastQ != -1 and substr ($read,$i-1,1 ne 'N');	# 1st cycle skipped; 1st can be 'N', so not $PEpos > 1
+			if ($lastQ != -1 and substr ($read,$i-1,1) ne 'N') {	# 1st cycle skipped; 1st can be 'N', so not $PEpos > 1
+				++$MarkovStat{$refBase}{$PEpos}{$lastQ}{$readBase}{$Qval};
+				++$QTrans{$refBase}{$PEpos}{$lastQ}{$Qval};
+			}
 			$lastQ = $Qval;
 		$SumQ += $Qval;
         ++$Stat{$refBase}{$PEpos}{$readBase}{$Qval};
@@ -259,7 +262,7 @@ if ($opt_p eq 'sam') {
     }
 }
 LABEL:
-print "[!]Input file type is [$type].\n";
+print STDERR "[!]Input file type is [$type].\n";
 my $start_time = [gettimeofday];
 
 #my ($RL1,$RL2)=(0,0);
