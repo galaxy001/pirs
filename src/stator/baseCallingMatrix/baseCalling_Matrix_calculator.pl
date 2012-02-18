@@ -188,13 +188,15 @@ sub statRead($$$$$) {
     my $QBflag=0;
     my $lastQ=-1;
 	my $SumQ=0;
+	my @Qvalues;
     for (my $i=0;$i<$READLEN;$i++) {
         my $refBase=substr $ref,$i,1 or return;
-        next unless $refBase =~ /^[ATCG]$/;
-        my $readBase=substr $read,$i,1;
-        next if $readBase eq 'N';
         my $QstrSingle=substr $Qstr,$i,1;
         my $Qval=ord($QstrSingle)-$Qascii;
+		push @Qvalues,$Qval;
+		next unless $refBase =~ /^[ATCG]$/;
+        my $readBase=substr $read,$i,1;
+        next if $readBase eq 'N';
         if ($MaxQ<$Qval) {
             $MaxQ=$Qval;
             warn "[!] Qval=$Qval($QstrSingle) > 40 found. Remember to add -I at bwa aln for Illumina reads !\n";
@@ -229,12 +231,6 @@ sub statRead($$$$$) {
     ++$TotalReads unless $PEpos==-1;
 	++$PlotReadsQavgHist{$Read_num}{int(2*$SumQ/$READLEN)/2};	# 0 for [0,0.5]
 	++$PlotReadsQavgHist{$Read_num}{-1};
-
-	my @Qvalues;
-	for (my $i=0;$i < $READLEN;$i++) {
-		my $Qval=ord(substr($Qstr,$i,1))-$Qascii;
-		push @Qvalues,$Qval;
-	}
 
 	for my $qlen (1..$QmkvMaxLen) {
 		my $pQavg=0;
@@ -529,7 +525,7 @@ for my $qlen (sort {$a<=>$b} keys %statQmkv) {
 			}
 		}
 		$sumT /= 2*$MaxQ - 2*$MinQ +1;
-		print OC join("\t",$sumT,@t),"\n";
+		print OC join("\t",int(0.5+1000*$sumT)/1000,@t),"\n";
 	}
 }
 
