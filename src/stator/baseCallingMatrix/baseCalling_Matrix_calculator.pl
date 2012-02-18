@@ -168,6 +168,8 @@ my %Stat;   # $Stat{Ref}{Cycle}{Read}{Quality}
 my %MarkovStat;   # $Stat{Ref}{Cycle}{pre-Q}{Read}{Quality}
 my %QTrans;   # $QTrans{Ref}{Cycle}{pre-Q}{Quality}, ?? NOT IN USE NOW
 my %PlotReadsQavgHist;   # $PlotReadsQavgHist{Read1,2}{Q(round to 0.5)}=count, -1 => Sum (Illumina Q>0, but maybe 0 after round)
+my %statQmkv;	# {$Len}->{PreQ_Avg}{Q}
+my $QmkvMaxLen=3;
 
 sub statRead($$$$$) {
     my ($ref,$isReverse,$read,$Qstr,$cyclestart)=@_;
@@ -227,6 +229,20 @@ sub statRead($$$$$) {
     ++$TotalReads unless $PEpos==-1;
 	++$PlotReadsQavgHist{$Read_num}{int(2*$SumQ/$READLEN)/2};	# 0 for [0,0.5]
 	++$PlotReadsQavgHist{$Read_num}{-1};
+
+	my @Qvalues;
+	for (my $i=0;$i < $READLEN;$i++) {
+		my $Qval=ord(substr($Qstr,$i,1))-$Qascii;
+		push @Qvalues,$Qval;
+	}
+
+	for my $qlen (1..$QmkvMaxLen) {
+		my $pQavg=0;
+		for (my $i=0;$i < $READLEN - $qlen + 1;$i++) {
+			$pQavg += $Qvalues[$_] for ($i .. $i+$qlen-1);
+			++$statQmkv{$qlen}{$Qvalues[$i]}->[int(2*$pQavg/$qlen)];
+		}
+	}
 }
 
 my $type;
@@ -392,7 +408,7 @@ Reference_Base_Ratio = $RBR
 <<END
 
 [Stat]
-Type = s1
+Type = 1s
 MappedReads = $mapReads
 MappedBases = $mapBase
 UsedReads = $TotalReads
@@ -403,7 +419,7 @@ QB_Mismatches = $QBmis
 <<END
 
 [4Dmatrix]
-Type = 2
+Type = 2d
 #".join("\t",'Ref','Cycle',@BaseQ);
 print OA $tmp;
 print OB $tmp;
@@ -435,7 +451,7 @@ for my $ref (@BaseOrder) {
 }
 print OA "<<END\n\n";
 
-print OA "[QTrans]\nType = 3\n#",join("\t",'Ref','Cycle','pre1_Q',0..$MaxQ),"\tRowSum\n";
+print OA "[QTrans]\nType = 3d\n#",join("\t",'Ref','Cycle','pre1_Q',0..$MaxQ),"\tRowSum\n";
 for my $ref (@BaseOrder) {
     for my $cycle (1..(2*$READLEN)) {
 		for my $preQ ($MinQ..$MaxQ) {
@@ -456,7 +472,7 @@ for my $ref (@BaseOrder) {
 }
 print OA "<<END\n\n";
 
-print OA "[5Dmatrix]\nType = 3\n#",join("\t",'Ref','Cycle','pre1_Q',@BaseQ),"\tRowSum\n";
+print OA "[5Dmatrix]\nType = 3d\n#",join("\t",'Ref','Cycle','pre1_Q',@BaseQ),"\tRowSum\n";
 print OB "<<END\n";
 for my $ref (@BaseOrder) {
     for my $cycle (1..(2*$READLEN)) {
@@ -494,6 +510,30 @@ for my $q (0..2*$MaxQ) {
 		$PlotReadsQavgHist{2}{$q/2}/$PlotReadsQavgHist{2}{-1}),"\n";
 }
 print OC "<<END\n";
+
+print OC "\n[QtransMatrix]\nType=2d1n\n";
+my @t;
+push @t,$_/2 for (2*$MinQ..2*$MaxQ);
+print OC join("\t",'Q','preLen','preQmean',@t),"\n";
+for my $qlen (sort {$a<=>$b} keys %statQmkv) {
+	for my $currQ (sort {$a<=>$b} keys %{$statQmkv{$qlen}}) {
+		print OC "$currQ\t$qlen\t";
+		@t=();
+		my $sumT=0;
+		for (2*$MinQ..2*$MaxQ) {
+			if (defined $statQmkv{$qlen}{$currQ}->[$_/2]) {
+				push @t,$statQmkv{$qlen}{$currQ}->[$_/2];
+				$sumT += $statQmkv{$qlen}{$currQ}->[$_/2];
+			} else {
+				push @t,'-';
+			}
+		}
+		$sumT /= 2*$MaxQ - 2*$MinQ +1;
+		print OC join("\t",$sumT,@t),"\n";
+	}
+}
+
+
 close OC;
 
 sub getValueNoNULL($) {
