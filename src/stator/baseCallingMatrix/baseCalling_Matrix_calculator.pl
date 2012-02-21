@@ -449,7 +449,8 @@ print OA "<<END\n\n";
 
 print OA "[QTrans]\nType = 3d\n#",join("\t",'Ref','Cycle','pre1_Q',0..$MaxQ),"\tRowSum\n";
 for my $ref (@BaseOrder) {
-    for my $cycle (1..(2*$READLEN)) {
+    for my $cycle (2..(2*$READLEN)) {
+		next if $cycle == 1 + 2*$READLEN;	# the first cycle is always 0
 		for my $preQ ($MinQ..$MaxQ) {
 			print OA "$ref\t$cycle\t$preQ\t";
 			my @Counts=();
@@ -525,7 +526,7 @@ for my $qlen (sort {$a<=>$b} keys %statQmkv) {
 			}
 		}
 		$sumT /= 2*$MaxQ - 2*$MinQ +1;
-		print OC join("\t",int(0.5+1000*$sumT)/1000,@t),"\n";
+		print OC join("\t",int(0.5+10000*$sumT)/10000,@t),"\n";
 	}
 }
 
