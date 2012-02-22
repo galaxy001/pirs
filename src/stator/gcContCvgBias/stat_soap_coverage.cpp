@@ -651,7 +651,7 @@ References:
         double k = sum_avg/sum_ref_count;
         out << "#WinSize=" << width << "\tWinCount=" << map_sumwincount[width] << "\tDepthCount=" << map_sumdepthcount[width] << endl
             << "#All-N windows count: " << winCountN[width] << endl
-            << "#GC%\tRefCnt\tDepthCnt\tMean\tModified_Mean\tSmall\tQ1\tMid\tQ3\tBig\tMin\tMax\tRefcntcal"
+            << "#GC%\tRefCnt\tDepthCnt\tMean\tSmoothedMean\tSmall\tQ1\tMid\tQ3\tBig\tMin\tMax\tRefcntcal"
             << endl;
         for(int i=0; i<gc_keyname.size(); ++i)
         {

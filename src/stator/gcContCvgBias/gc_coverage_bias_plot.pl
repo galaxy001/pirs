@@ -55,9 +55,9 @@ if ($user eq 'galaxy') {
     #$gnuplot='/opt/blc/genome/biosoft/gnuplot-4.4.0/bin/gnuplot';
     $font='/ifs1/ST_ASMB/USER/huxuesong/public/fonts/arial.ttf';
     $gnuplot='gnuplot';
-    chomp(my @ttfile=`locate arial.ttf`);
-    $font = $ttfile[0] if @ttfile;
 }
+chomp(my @ttfile=`locate arial.ttf`);
+$font = $ttfile[0] if @ttfile;
 open P,'>',$name.'.dem' or die "Error openimg $name.dem: $!\n";
 my $yrange='#set yrange [0:10]';
 if ($maxdep) {
@@ -87,10 +87,11 @@ set origin 0,0.21
 set size 1,0.79
 set logscale y2
 plot '$name' \\
-     using 1:11 with lines axis x1y2 lt rgb "#006400" lw 2 title 'max depth', \\
-     ''      using 1:6:5:9:8 with candlesticks lt rgb "navy" lw 2 title 'depth box' whiskerbars 0.5, \\
-     ''      using 1:7:7:7:7 with candlesticks lt -1 lw 2 notitle, \\
-     ''      using 1:4 with points lt rgb "red" lw 3 title 'mean depth'
+     using 1:12 with lines axis x1y2 lt rgb "#006400" lw 2 title 'max depth', \\
+     ''      using 1:7:6:10:9 with candlesticks lt rgb "navy" lw 2 title 'depth box' whiskerbars 0.5, \\
+     ''      using 1:8:8:8:8 with candlesticks lt -1 lw 2 notitle, \\
+     ''      using 1:4 with points lt rgb "#F0AC20" lw 3 title 'raw mean depth', \\
+     ''      using 1:5 with points lt rgb "red" lw 3 title 'smoothed mean depth'
 
 set y2label " "
 set y2tics textcolor rgb "#FFFFFF"

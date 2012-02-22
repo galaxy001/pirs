@@ -15,11 +15,11 @@ stat_soap_coverage.o:stat_soap_coverage.h stat_soap_coverage.cpp
 	${CC} -c ${LIBRARY} stat_soap_coverage.h stat_soap_coverage.cpp -static
 test: gc_coverage_bias
 	./gc_coverage_bias -r gcdeptestref.fa.gz -o test -w 100,200 --gcdump --depwindump gcdeptest.depth.gz
-	-./gc_coverage_bias_plot test_100.dat
-	-./gc_coverage_bias_plot test_200.dat
+	-./gc_coverage_bias_plot.pl test_100.dat
+	-./gc_coverage_bias_plot.pl test_200.dat
 	ls -l test*
-testclean:
+clean: justclean
 	-rm -v test_*
-clean:
+justclean:
 	-rm -v ${OBJ} *.gch
 
