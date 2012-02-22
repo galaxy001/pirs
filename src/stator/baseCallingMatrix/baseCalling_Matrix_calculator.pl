@@ -62,7 +62,7 @@ our($opt_o, $opt_r, $opt_l, $opt_p, $opt_s, $opt_c, $opt_b);
 
 #our $desc='';
 our $help=<<EOH;
-\t-p type of input files {(auto),sam,soap}
+\t-p type of input files {(auto),sam,soap,fq} [ONLY pIRS Generated fq]
 \t-r ref fasta file (./ref/human.fa) [.{gz,bz2} is OK]
 \t-s trim SNP positions from (<filename>) in format /^ChrID\\tPos/
 \t-l read length of reads (100)
@@ -247,10 +247,17 @@ if ($opt_p eq 'sam') {
 } elsif ($opt_p eq 'soap') {
     $type = 'soap';
     $Qascii = 64;
+} elsif ($opt_p eq 'fq') {
+    $type = 'fq';
 } else {
     chomp($_=<>) or die "[x]Empty input !\n";
     if (/^@/) {
-        $type = 'sam';
+        if (/^@\w+\t/) {
+            $type = 'sam';
+        } else {
+            $type = 'fq';
+            # @read_800_22/1 ChrID 2 129025 70 786 32,C;70,A;
+        }
     } else {
         $type = 'soap';
         $Qascii = 64;
@@ -516,20 +523,25 @@ for my $qlen (sort {$a<=>$b} keys %statQmkv) {
 	for my $currQ (sort {$a<=>$b} keys %{$statQmkv{$qlen}}) {
 		print OC "$currQ\t$qlen\t";
 		@t=();
-		my $sumT=0;
+		my ($sumT,$sumQ)=(0,0);
 		for (2*$MinQ..2*$MaxQ) {
 			if (defined $statQmkv{$qlen}{$currQ}->[$_/2]) {
 				push @t,$statQmkv{$qlen}{$currQ}->[$_/2];
 				$sumT += $statQmkv{$qlen}{$currQ}->[$_/2];
+				$sumQ += $currQ * ($statQmkv{$qlen}{$currQ}->[$_/2]);
 			} else {
 				push @t,'-';
 			}
 		}
-		$sumT /= 2*$MaxQ - 2*$MinQ +1;
-		print OC join("\t",int(0.5+10000*$sumT)/10000,@t),"\n";
+		#$sumT /= 2*$MaxQ - 2*$MinQ +1;	# This is just average count, >_<
+		if ($sumT != 0) {
+			print OC join("\t",int(0.5+10000*$sumQ/$sumT)/10000,@t),"\n";;
+		} else {
+			print OC join("\t",'-',@t),"\n";
+		}
 	}
 }
-
+print OC "<<END\n";
 
 close OC;
 
