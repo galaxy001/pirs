@@ -3,6 +3,7 @@
 #include <string>
 #include <cstdlib>
 #include <algorithm>
+#include <math.h>
 #include <vector>
 #include <boost/progress.hpp>
 #include <boost/progress.hpp>
@@ -566,16 +567,97 @@ void stat_soap_coverage::DealStat()
             sum_ref_count += temp_gc_output[gc_keyname[i]][0];
         }
 
+        //***2012-2-20 yuanjy
+        //Modify mean vaule by LOESS
+        vector<double> modify_mean;
+        for(int i=0; i<gc_keyname.size(); ++i)
+        {
+            double a00 = 0, a01 = 0, a11 = 0, d0 = 0, d1 = 0;
+            int span = 3;
+            for(int j=i-span; j<=i+span; ++j)
+            {
+                if(j<0 || j>=gc_keyname.size() || fabs(gc_keyname[j]-gc_keyname[i]) > span){continue;}
+//                  cerr<<"gc_keyname[j]:"<<gc_keyname[j]<<"\tgc_keyname[i]:"<<gc_keyname[i]<<endl;
+//                  cerr<<"fabs(gc_keyname[j]-gc_keyname[i]):"<<fabs(gc_keyname[j]-gc_keyname[i])<<endl;
+//                  cerr<<"fabs(gc_keyname[j]-gc_keyname[i])/double(span):"<<fabs(gc_keyname[j]-gc_keyname[i])/double(span)<<endl;
+//                  cerr<<"pow(fabs(gc_keyname[j]-gc_keyname[i])/double(span),3.0):"<<pow(fabs(gc_keyname[j]-gc_keyname[i])/double(span),3.0)<<endl;
+//                  cerr<<"(1-pow(fabs(gc_keyname[j]-gc_keyname[i])/double(span),3.0)):"<<(1-pow(fabs(gc_keyname[j]-gc_keyname[i])/double(span),3.0))<<endl;
+                double w = pow((1-pow(fabs(gc_keyname[j]-gc_keyname[i])/double(span),3.0)),1.5);
+//              cerr << "double w:"<<w<<endl;
+                a00 += w;
+                a01 += w*gc_keyname[j];
+                a11 += w*gc_keyname[j]*gc_keyname[j];
+                d0 += w*temp_gc_output[gc_keyname[j]][1]; 
+                d1 += w*gc_keyname[j]*temp_gc_output[gc_keyname[j]][1];
+            }
+            double tem;
+            double EPS = 1E-07;
+            if((a11*a00 - a01*a01) < EPS){
+                tem = temp_gc_output[gc_keyname[i]][1];
+            }else{
+                tem = (a11*d0-a01*d1)/(a11*a00-a01*a01) + gc_keyname[i] * (a01*d0-a00*d1)/(a01*a01-a00*a11);
+            }
+//          cerr <<tem<<endl;
+            if(tem < 0){tem = 0;}
+            modify_mean.push_back(tem);
+        }
+        //***
+/* from smooth.m of MATLAB, function ys = unifloess(y,span,useLoess)
+该函数后面做回归的部分暂时换成了用最小二乘法做的线性回归。
+% LOWESS  Smooth data using Lowess or Loess method.
+%
+% The difference between LOWESS and LOESS is that LOWESS uses a
+% linear model to do the local fitting whereas LOESS uses a
+% quadratic model to do the local fitting. Some other software
+% may not have LOWESS, instead, they use LOESS with order 1 or 2 to
+% represent these two smoothing methods.
+%
+% Reference: 
+% [C79] W.S.Cleveland, "Robust Locally Weighted Regression and Smoothing
+%    Scatterplots", _J. of the American Statistical Ass._, Vol 74, No. 368 
+%    (Dec.,1979), pp. 829-836.
+%    http://www.math.tau.ac.il/~yekutiel/MA%20seminar/Cleveland%201979.pdf
+
+See also in R:
+?lowess
+References:
+
+     Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988) _The New S
+     Language_.  Wadsworth & Brooks/Cole.
+
+     Cleveland, W. S. (1979) Robust locally weighted regression and
+     smoothing scatterplots.  _J. Amer. Statist. Assoc._ *74*, 829-836.
+
+     Cleveland, W. S. (1981) LOWESS: A program for smoothing
+     scatterplots by robust locally weighted regression. _The American
+     Statistician_, *35*, 54.
+
+?loess
+Author(s):
+
+     B. D. Ripley, based on the ‘cloess’ package of Cleveland, Grosse
+     and Shyu (currently available as ‘dloess’ at <URL:
+     http://www.netlib.org/a>: the R implementation is based on an 1998
+     version).
+
+References:
+
+     W. S. Cleveland, E. Grosse and W. M. Shyu (1992) Local regression
+     models. Chapter 8 of _Statistical Models in S_ eds J.M. Chambers
+     and T.J. Hastie, Wadsworth & Brooks/Cole.
+*/
+
         double k = sum_avg/sum_ref_count;
         out << "#WinSize=" << width << "\tWinCount=" << map_sumwincount[width] << "\tDepthCount=" << map_sumdepthcount[width] << endl
             << "#All-N windows count: " << winCountN[width] << endl
-            << "#GC%\tRefCnt\tDepthCnt\tMean\tSmall\tQ1\tMid\tQ3\tBig\tMin\tMax\tRefcntcal"
+            << "#GC%\tRefCnt\tDepthCnt\tMean\tModified_Mean\tSmall\tQ1\tMid\tQ3\tBig\tMin\tMax\tRefcntcal"
             << endl;
         for(int i=0; i<gc_keyname.size(); ++i)
         {
             out << gc_keyname[i] << "\t" << map_wincount[width][gc_keyname[i]] 
                 << "\t" << uint64_t(temp_gc_output[gc_keyname[i]][0])
                 << "\t" << temp_gc_output[gc_keyname[i]][1]
+                << "\t" << modify_mean[i]
                 << "\t" << temp_gc_output[gc_keyname[i]][2]
                 << "\t" << temp_gc_output[gc_keyname[i]][3]
                 << "\t" << temp_gc_output[gc_keyname[i]][4]
