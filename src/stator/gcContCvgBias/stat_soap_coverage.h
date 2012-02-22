@@ -7,6 +7,8 @@
 #include <stdint.h>
 using namespace std;
 
+#define MIN_LOESS_COUNT 100
+
 class stat_soap_coverage
 {
     private:

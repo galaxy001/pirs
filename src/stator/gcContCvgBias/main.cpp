@@ -16,10 +16,10 @@ void usage()
         << "    it is a program to stat about the gc_depth and base coverage ratio and base_depth with *.soap.coverage  result." << endl
         << "Program:" << endl
         << "Name:           gc_coverage_bias" << endl
-        << "Compile Date:   2011-08-03" << endl
-        << "Author:         ganjun" << endl
-        << "Version:        1.01" << endl
-        << "Contact:        ganjun@genomics.org,cn" << endl;
+        << "Compile Date:   2012-02-23" << endl
+        << "Author:         Gan Jun, Yuan JY, Hu Xuesong" << endl
+        << "Version:        1.02" << endl
+        << "Contact:        ganjun@genomics.org.cn" << endl;
 
     cerr << "\n\nUsage:\tgc_coverage_bias [options] <*.soap.coverage>" << endl
         << "Option: -r <string>     a reference sequence file about FA format " << endl

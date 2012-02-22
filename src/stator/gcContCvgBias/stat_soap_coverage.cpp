@@ -592,13 +592,14 @@ void stat_soap_coverage::DealStat()
             }
             double tem;
             double EPS = 1E-07;
-            if((a11*a00 - a01*a01) < EPS){
+            if ( (temp_gc_output[gc_keyname[i]][0] >= MIN_LOESS_COUNT) || ((a11*a00 - a01*a01) < EPS) ) {
+				// patch: only modify those with less DepthCnt.
                 tem = temp_gc_output[gc_keyname[i]][1];
-            }else{
+            } else {
                 tem = (a11*d0-a01*d1)/(a11*a00-a01*a01) + gc_keyname[i] * (a01*d0-a00*d1)/(a01*a01-a00*a11);
             }
 //          cerr <<tem<<endl;
-            if(tem < 0){tem = 0;}
+            if (tem < 0) {tem = 0;}
             modify_mean.push_back(tem);
         }
         //***
