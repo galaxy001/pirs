@@ -1,0 +1,31 @@
+This file is to help you build and install pIRS for your system.
+
+Contents
+========
+1. Dependencies
+2. Building
+
+1. Dependencies
+===============
+pIRS requires the following libraries to compile:
+
+    zlib (http://www.zlib.net/)
+    Boost Libraries (http://www.boost.org/)
+
+pIRS requires the following tools to generate and analyse profiles:
+
+    Perl 5 (http://www.perl.org/)
+    Gzip (http://www.gnu.org/software/gzip/)
+    GNU Core Utilities (http://www.gnu.org/software/coreutils/)
+
+2. Building
+===========
+The GNU Compiler Collection version 4 and above are needed. (http://gcc.gnu.org/)
+
+    make
+
+All tools will be linked to top path after make.
+You are free to use the following command to install them to /TARGET/PATH/ :
+
+    find . -type l|while read a;do cp --copy-contents -LR  "$a" /TARGET/PATH/;done
+
