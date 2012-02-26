@@ -98,20 +98,22 @@ print OD "#ReadsCnt=$ReadsCnt LENtoStat=$LENtoStat\n#Q\toutMean\t",join("\t",(2.
 my ($above,$below,$at)=(0,0,0);
 for my $k (sort {$a<=>$b} keys %Dat) {
     my $ret=&cal($Dat{$k});
-    print OUT join("\t",$k,@$ret),"\n";
-    print OD "$k\t$$ret[-2]";
-    for my $p (0..$#{$Dat{$k}}-1) {
-		my $oq=$p+$MinQ;
-        my $out='-';
-        if (defined $Dat{$k}->[$p+1]){# && $k>2 && $oq>2) {
-            $out=$Dat{$k}->[$p+1];
-            if ($oq>$k) {$above+=$out;}# if $k>2;}
-             elsif ($oq==$k) {$at+=$out;}
-             else {$below+=$out;}
-        }
-        print OD "\t$out";
-    }
-    print OD "\n";
+	if ($$ret[0]) {
+		print OUT join("\t",$k,@$ret),"\n";
+		print OD "$k\t$$ret[-2]";
+		for my $p (1..$#{$Dat{$k}}) {
+			my $oq=$p-1+$MinQ;
+			my $out='-';
+			if (defined $Dat{$k}->[$p]){# && $k>2 && $oq>2) {
+				$out=$Dat{$k}->[$p];
+				if ($oq>$k) {$above+=$out;}# if $k>2;}
+				 elsif ($oq==$k) {$at+=$out;}
+				 else {$below+=$out;}
+			}
+			print OD "\t$out";
+		}
+		print OD "\n";
+	}
 }
 #print OUT "Y\t$_\t$Yrange{$_}\n" for sort {$a<=>$b} keys %Yrange;
 close OUT;
