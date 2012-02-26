@@ -67,12 +67,16 @@ sub cal($) {
     return [$n,$max,$min,$common,$mean,$std];
 }
 
-my ($ReadCnt,%statQ,$ret)=(0);
+my ($ReadCnt,%statQ,$ret,%PlotReadsQavgHist)=(0);
 
 #my $LENtoStat=10;
 sub statQ($) {
     my $Qvalues=$_[0];
     my $Qlen=scalar @$Qvalues;
+	my $Qsum=0;
+	$Qsum += $_ for @$Qvalues;
+	++$PlotReadsQavgHist{int(2*$Qsum/$Qlen)/2};
+	++$PlotReadsQavgHist{-1};
     return "[x]Read Length must >= $LENtoStat." if $Qlen<$LENtoStat;
     for my $p (0..$Qlen-$LENtoStat-1) {
 #   for my $p (19..$Qlen-$LENtoStat-1) {
@@ -122,5 +126,18 @@ for my $k (sort {$a<=>$b} keys %statQ) {
 #print OUT "Y\t$_\t$Yrange{$_}\n" for sort {$a<=>$b} keys %Yrange;
 close OUT;
 print OD "# Above: $above\n# At: $at\n# Below: $below\n";
+
+print OD "<<END\n\n";
+
+my $MaxQ = 40;
+print OD "[AvgQonReads]
+#Total Reads Mean Quality values: $PlotReadsQavgHist{-1}
+#Q\tCount\tRatio\n";
+for my $q (0..2*$MaxQ) {
+	$PlotReadsQavgHist{$q/2} = 0 unless exists $PlotReadsQavgHist{$q/2};
+	print OD join("\t",$q/2,$PlotReadsQavgHist{$q/2},
+		$PlotReadsQavgHist{$q/2}/$PlotReadsQavgHist{-1},"\n");
+}
+print OD "<<END\n";
 close OD;
 
