@@ -19,6 +19,6 @@ set view map
 set xlabel "Following Q"
 set ylabel "Leading Q"
 
-plot 'tmp' using 2:1:3 with image
+plot 'ifQplot.dat' using 2:1:3 with image
 
 
