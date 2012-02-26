@@ -1,18 +1,24 @@
 set title ""
 unset key
-set tic scale 0
+#set tic scale 0
+set mxtics
+set mytics
+set xtics out
+set ytics out
 
 set term png font "/export/data0/Fonts/win7/arial.ttf" 48 size 2102,1576 truecolor linewidth 3
 set output "ifollowQplot.png"
 
 # Color runs from white to green
 set palette rgbformula 34,35,36
-set cbrange [0:0.2]
-set cblabel "Ratio 0~0.2"
+set cbrange [0:0.25]
+set cblabel "Ratio 0 ~ 0.25"
 unset cbtics
 
-set xrange [1:41]
-set yrange [1:41]
+set xrange [1.5:40.5]
+set yrange [1.5:40.5]
+
+#set grid layerdefault front lt rgb "blue" lw 1
 
 set view map
 
