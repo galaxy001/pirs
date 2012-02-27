@@ -119,10 +119,15 @@ for my $q (keys %Dat) {
 }
 
 open OD,'>','ifQplot.dat' or die "Error opening ifQplot.dat: $!\n";
-for my $i (sort {$a<=>$b} keys %Dat) {
-    for my $j ($MinQ..$MaxQ) {
-        print OD "$i\t$j\t$Dat{$i}->[$j-($MinQ-1)]\n"
-    }
-    print OD "\n";
+for my $i ($MinQ..$MaxQ) {
+	if (exists $Dat{$i}) {
+		for my $j ($MinQ..$MaxQ) {
+			print OD "$i\t$j\t$Dat{$i}->[$j-($MinQ-1)]\n"
+		}
+	} else {
+		for my $j ($MinQ..$MaxQ) {
+			print OD "$i\t$j\t0\n"
+		}
+	}
 }
 close OD;
