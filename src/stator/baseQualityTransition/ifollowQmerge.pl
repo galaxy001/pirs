@@ -1,7 +1,7 @@
 #!/bin/env perl
 use strict;
 use warnings;
-use Data::Dump qw(dump ddx);
+#use Data::Dump qw(dump ddx);
 
 die "Usage: $0 <in.fQdat, ...>\n[!]Output filename is CONST.\n" if @ARGV < 1;
 my ($MinQ,$MaxQ)=(2,40);
@@ -84,7 +84,7 @@ while(<>) {
 		$ReadsCnt += $1;
 		++$LentoStat{$2};
 		readmatrix();
-ddx \%Dat;
+#ddx \%Dat;
 	} elsif (/^\[AvgQonReads\]\n/) {
 		readHist();
 	}
