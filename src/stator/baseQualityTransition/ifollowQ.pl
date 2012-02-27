@@ -4,6 +4,11 @@ use warnings;
 
 die "Usage: $0 <LENtoStat> <read1.fq.gz> <outprefix>.fQ{out,dat}\n" if @ARGV != 3;
 my ($LENtoStat,$fq1,$out)=@ARGV;
+my $Qchr = 64;
+if ($LENtoStat<0) {
+	$Qchr = 33;
+	$LENtoStat = -$LENtoStat;
+}
 $out .= ".$LENtoStat";
 
 sub openfile($) {
@@ -32,7 +37,7 @@ sub readfq($) {
 sub getQ($) {
     my @Qstr=split //,$_[0];
     my @Qvalue=();
-    push @Qvalue,ord($_)-64 for @Qstr;
+    push @Qvalue,ord($_)-$Qchr for @Qstr;
     return \@Qvalue;
 }
 sub cal($) {
