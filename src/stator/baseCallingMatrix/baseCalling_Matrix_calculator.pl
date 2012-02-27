@@ -166,7 +166,7 @@ my ($mapBase,$mapReads,$QBbase,$QBmis)=(0,0,0,0);
 my $Qascii=33;  # Sam 33, Soap 64.
 my %Stat;   # $Stat{Ref}{Cycle}{Read}{Quality}
 my %MarkovStat;   # $Stat{Ref}{Cycle}{pre-Q}{Read}{Quality}
-my %QTrans;   # $QTrans{Ref}{Cycle}{pre-Q}{Quality}, ?? NOT IN USE NOW
+my %QTrans;   # $QTrans{Cycle}{pre-Q}{Quality}
 my %PlotReadsQavgHist;   # $PlotReadsQavgHist{Read1,2}{Q(round to 0.5)}=count, -1 => Sum (Illumina Q>0, but maybe 0 after round)
 my %statQmkv;	# {$Len}->{PreQ_Avg}{Q}
 my $QmkvMaxLen=3;
@@ -204,7 +204,7 @@ sub statRead($$$$$) {
 		$PEpos=$cyclestart+$i;
 		if ($lastQ != -1) {	# 1st cycle skipped; 1st can be 'N', so not $PEpos > 1
 			++$MarkovStat{$refBase}{$PEpos}{$lastQ}{$readBase}{$Qval};
-			++$QTrans{$refBase}{$PEpos}{$lastQ}{$Qval};
+			++$QTrans{$PEpos}{$lastQ}{$Qval};
 		}
 		$lastQ = $Qval;
 		$SumQ += $Qval;
@@ -397,7 +397,6 @@ for my $base (@BaseOrder) {
 }
 $tmp .= "\n
 [Info]
-Type = Null
 Date = $date
 User = ${user}$mail
 FileType = $type
@@ -411,7 +410,6 @@ Reference_Base_Ratio = $RBR
 <<END
 
 [Stat]
-Type = 1s
 MappedReads = $mapReads
 MappedBases = $mapBase
 UsedReads = $TotalReads
@@ -421,8 +419,7 @@ QB_Bases = $QBbase
 QB_Mismatches = $QBmis
 <<END
 
-[4Dmatrix]
-Type = 2d
+[DistMatrix]
 #".join("\t",'Ref','Cycle',@BaseQ);
 print OA $tmp;
 print OB $tmp;
@@ -454,16 +451,16 @@ for my $ref (@BaseOrder) {
 }
 print OA "<<END\n\n";
 
-print OA "[QTrans]\nType = 3d\n#",join("\t",'Ref','Cycle','pre1_Q',0..$MaxQ),"\tRowSum\n";
-for my $ref (@BaseOrder) {
+print OA "[QTransMatrix]\n#",join("\t",'Cycle','pre1_Q',0..$MaxQ),"\tRowSum\n";
+#for my $ref (@BaseOrder) {
     for my $cycle (2..(2*$READLEN)) {
-		next if $cycle == 1 + 2*$READLEN;	# the first cycle is always 0
+		next if $cycle == 1 + $READLEN;	# the first cycle is always 0
 		for my $preQ ($MinQ..$MaxQ) {
-			print OA "$ref\t$cycle\t$preQ\t";
+			print OA "$cycle\t$preQ\t";
 			my @Counts=();
 			for my $q (0..$MaxQ) {
-				if (exists $QTrans{$ref}{$cycle} and exists $QTrans{$ref}{$cycle}{$preQ} and exists $QTrans{$ref}{$cycle}{$preQ}{$q}) {
-					$count=$QTrans{$ref}{$cycle}{$preQ}{$q};
+				if (exists $QTrans{$cycle} and exists $QTrans{$cycle}{$preQ} and exists $QTrans{$cycle}{$preQ}{$q}) {
+					$count=$QTrans{$cycle}{$preQ}{$q};
 				} else {$count=0;}
 				push @Counts,$count;
 				&toCountGridSampled($count,'QT') if $q >= $MinQ;
@@ -473,15 +470,17 @@ for my $ref (@BaseOrder) {
 			print OA join("\t",@Counts,$countsum),"\n";
 		}
     }
-}
-print OA "<<END\n\n";
-
-print OA "[5Dmatrix]\nType = 3d\n#",join("\t",'Ref','Cycle','pre1_Q',@BaseQ),"\tRowSum\n";
+#}
+print OA "<<END\n";
 print OB "<<END\n";
+close OA;
+close OB;
+
+print OC "[5Dmatrix]\nType = 3d\n#",join("\t",'Ref','Cycle','pre1_Q',@BaseQ),"\tRowSum\n";
 for my $ref (@BaseOrder) {
     for my $cycle (1..(2*$READLEN)) {
 		for my $preQ ($MinQ..$MaxQ) {
-			print OA "$ref\t$cycle\t$preQ\t";
+			print OC "$ref\t$cycle\t$preQ\t";
 			my @Counts=();
 			for my $base (@BaseOrder) {
 				for my $q (0..$MaxQ) {
@@ -494,16 +493,13 @@ for my $ref (@BaseOrder) {
 			}
 			$countsum=0;
 			$countsum += $_ for @Counts;
-			print OA join("\t",@Counts,$countsum),"\n";
+			print OC join("\t",@Counts,$countsum),"\n";
 		}
     }
 }
-print OA "<<END\n";
+print OC "<<END\n";
 
-close OA;
-close OB;
-
-print OC "[AvgQonReads]
+print OC "\n[AvgQonReads]
 #Total Quality values: $PlotReadsQavgHist{1}{-1}, $PlotReadsQavgHist{2}{-1}
 #Q\tRead_1\tRead_2\tRatio_1\tRatio_2\n";
 for my $q (0..2*$MaxQ) {
@@ -515,16 +511,16 @@ for my $q (0..2*$MaxQ) {
 }
 print OC "<<END\n";
 
-print OC "\n[QtransMatrix]\nType=2d1n\n";
+print OC "\n[QtransStat]\n";
 my @t;
-push @t,$_/2 for (2*$MinQ..2*$MaxQ);
+push @t,$_/2 for (2*2..2*$MaxQ);
 print OC join("\t",'Q','preLen','preQmean',@t),"\n";
 for my $qlen (sort {$a<=>$b} keys %statQmkv) {
 	for my $currQ (sort {$a<=>$b} keys %{$statQmkv{$qlen}}) {
 		print OC "$currQ\t$qlen\t";
 		@t=();
 		my ($sumT,$sumQ)=(0,0);
-		for (2*$MinQ..2*$MaxQ) {
+		for (2*2..2*$MaxQ) {
 			if (defined $statQmkv{$qlen}{$currQ}->[$_/2]) {
 				push @t,$statQmkv{$qlen}{$currQ}->[$_/2];
 				$sumT += $statQmkv{$qlen}{$currQ}->[$_/2];
