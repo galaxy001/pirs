@@ -455,7 +455,7 @@ print OA "[QTransMatrix]\n#",join("\t",'Cycle','pre1_Q',0..$MaxQ),"\tRowSum\n";
 #for my $ref (@BaseOrder) {
     for my $cycle (2..(2*$READLEN)) {
 		next if $cycle == 1 + $READLEN;	# the first cycle is always 0
-		for my $preQ ($MinQ..$MaxQ) {
+		for my $preQ (0..$MaxQ) {
 			print OA "$cycle\t$preQ\t";
 			my @Counts=();
 			for my $q (0..$MaxQ) {

@@ -16,11 +16,12 @@ pIRS requires the following tools to generate and analyse profiles:
 
     Perl 5 (http://www.perl.org/)
     Gzip (http://www.gnu.org/software/gzip/)
+    Gnuplot 4.4 (http://www.gnuplot.info/)
     GNU Core Utilities (http://www.gnu.org/software/coreutils/)
 
 2. Building
 ===========
-The GNU Compiler Collection version 4 and above are needed. (http://gcc.gnu.org/)
+The GNU Compiler Collection version 4.2 and above are needed. (http://gcc.gnu.org/)
 
     make
 
