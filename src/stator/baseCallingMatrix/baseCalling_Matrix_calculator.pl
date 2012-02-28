@@ -57,8 +57,8 @@ EOH
 }
 
 $main::VERSION=0.1.1;
-our $opts='r:o:l:p:s:c:b';
-our($opt_o, $opt_r, $opt_l, $opt_p, $opt_s, $opt_c, $opt_b);
+our $opts='r:o:l:p:s:c:qb';
+our($opt_o, $opt_r, $opt_l, $opt_p, $opt_s, $opt_c, $opt_q, $opt_b);
 
 #our $desc='';
 our $help=<<EOH;
@@ -68,6 +68,7 @@ our $help=<<EOH;
 \t-l read length of reads (100)
 \t-o output prefix (./matrix).{count,ratio}.matrix and .{stat,info}
 \t-c ChrID list (./chrtouse)
+\t-q Use Qascii=64 for sam files instead of 33
 \t-b No pause for batch runs
 For gzipped files, use zcat and pipe(|).
 EOH
@@ -85,6 +86,7 @@ if ($opt_s) {die "[x]-s $opt_s not exists !\n" unless -f $opt_s;}
 print STDERR "From [@ARGV]($opt_p) of [$opt_l] with [$opt_r] to [$opt_o]\n";
 print STDERR "ChrID list:[$opt_c]\n" if $opt_c;
 print STDERR "SNP skipping list:[$opt_s]\n" if $opt_s;
+print STDERR "SAM files with Qascii=64\n" if $opt_q;
 unless ($opt_b) {print STDERR "Wait 3 seconds to continue...\n"; sleep 3;}
 
 #my $start_time = [gettimeofday];
@@ -164,6 +166,7 @@ Only J supported now.
 my ($TotalBase,$TotalReads,%BaseCountTypeRef);
 my ($mapBase,$mapReads,$QBbase,$QBmis)=(0,0,0,0);
 my $Qascii=33;  # Sam 33, Soap 64.
+$Qascii=64 if $opt_q;
 my %Stat;   # $Stat{Ref}{Cycle}{Read}{Quality}
 my %MarkovStat;   # $Stat{Ref}{Cycle}{pre-Q}{Read}{Quality}
 my %QTrans;   # $QTrans{Cycle}{pre-Q}{Quality}
