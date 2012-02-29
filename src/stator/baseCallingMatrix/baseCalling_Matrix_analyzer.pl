@@ -6,20 +6,21 @@
 
 =head1 Description
 
-	analyse the matrix about reads' characteristic count from comparison results
+	analyse the matrix about reads'' characteristic count from comparison results
 
-	the program need the matrix file as input.It will creat 6 files:
+	the program need the matrix file as input.It will creat 7 files:
 	  *.misVSerr.base.stat : mismatch rate and error rate calculate by quality value for every cycle
 	  *.qualVSmis.stat : compair the real mismatch rate and the calculated error rate for each quality value
-	  *.transform.cycle.stat : the rate of the reference nucleotide be sequenced to each for nucleotide for every cycle
-	  *.transform.avg.stat : the average the reference nucleotide be sequenced to each for nucleotide for all cycle along read
+	  *.transform.cycle.stat : the rate of the reference nucleotide be sequenced to each nucleotide for every cycle
+	  *.transform.qual.stat : the rate of the reference nucleotide be sequenced to each nucleotide for every quality
+	  *.transform.avg.stat : the average the reference nucleotide be sequenced to each nucleotide for all cycle along read
 	  *.qual.mat.dis : the distribution of quality value for matched read base
 	  *.qual.mis.dis : the distribution of quality value for mismatched read base
 
 =head1 Version
 	
 	Author: Shi Yujian , shiyujian@genomics.org.cn
-	Version: 1.1 , Date:2011-8
+	Version: 1.2 , Date:2011-8
 
 =head1 Usage
 
@@ -63,10 +64,22 @@ my %seq2bit = ("A"=>0,"C"=>1,"G"=>2,"T"=>3);
 my @bit2seq = ("A","C","G","T");
 my @matrix;
 open IN,$in_file || die"$!";
+
+while(<IN>)
+{
+	if(/\[DistMatrix\]/)
+	{
+		$_=<IN>;
+		die "input file format error" unless(/#Ref/);
+		last;
+	}
+}
+
 while(<IN>)
 {
 	next if(/#/);
 	next unless(/\S+/);
+	last if(/END/);
 	chomp;
 	my @line = split;
 	my $k = 2;
@@ -91,7 +104,7 @@ for(my $i=$min_qual;$i<=$max_qual;$i++)
 	$q2e[$i] = 10 ** (-$i / 10);
 }
 
-my(@sum_row,@sum_cycle,@sum_ref,@sum_cycle_match,@sum_cycle_err,@transform_cycle,@transform_avg);
+my(@sum_row,@sum_cycle,@sum_ref,@sum_cycle_match,@sum_cycle_err,@transform_cycle,@transform_avg,@transform_qual,@transform_qual_sum);
 my(@match_qual_cycle,@mis_qual_cycle);
 my(@match_qual_sum,$match_sum,@mis_qual_sum,$mis_sum,$err_sum);
 for(my $ref=0;$ref<@matrix;$ref++)
@@ -107,6 +120,7 @@ for(my $ref=0;$ref<@matrix;$ref++)
 				my $err_tmp = $matrix[$ref][$cycle][$base][$qual] * $q2e[$qual];
 				$sum_cycle_err[$cycle] += $err_tmp;
 				$err_sum += $err_tmp;
+				$transform_qual[$qual][$ref][$base] += $matrix[$ref][$cycle][$base][$qual];
 				if($ref == $base)
 				{
 					$sum_cycle_match[$cycle] += $matrix[$ref][$cycle][$base][$qual];
@@ -119,6 +133,7 @@ for(my $ref=0;$ref<@matrix;$ref++)
 					$mis_qual_cycle[$cycle][$qual] += $matrix[$ref][$cycle][$base][$qual];
 					$mis_qual_sum[$qual] += $matrix[$ref][$cycle][$base][$qual];
 					$mis_sum += $matrix[$ref][$cycle][$base][$qual];
+					$transform_qual_sum[$qual][$ref] += $matrix[$ref][$cycle][$base][$qual];
 				}
 			}
 			$sum_row[$ref][$cycle] += $sum_tmp;
@@ -247,6 +262,47 @@ for(my $cycle=0;$cycle<@transform_cycle;$cycle++)
 			my $transform_rate_tmp = 0;
 #			$transform_rate_tmp = $transform_cycle[$cycle][$ref][$base] / ($sum_row[$ref][$cycle] - $transform_cycle[$cycle][$ref][$ref]) if(($sum_row[$ref][$cycle] - $transform_cycle[$cycle][$ref][$ref]));
 			$transform_rate_tmp = $transform_cycle[$cycle][$ref][$base] / $sum_row[$ref][$cycle] if($sum_row[$ref][$cycle]);
+			print OUT "$transform_rate_tmp\t";
+		}
+	}
+	print OUT "\n";
+}
+close OUT;
+
+open OUT,">$out\.transform.qual.stat" || die "$!";
+print OUT "#qual\t";
+for(my $ref=0;$ref<@transform_avg;$ref++)
+{
+	for(my $base=0;$base<@{$transform_avg[$ref]};$base++)
+	{
+		next if($ref == $base);
+		print OUT "$bit2seq[$ref]\-\>$bit2seq[$base]\t";
+	}
+}
+print OUT "\n#avg\t";
+for(my $ref=0;$ref<@transform_avg;$ref++)
+{
+	for(my $base=0;$base<@{$transform_avg[$ref]};$base++)
+	{
+		next if($ref == $base);
+		my $transform_rate_tmp = 0;
+		$transform_rate_tmp = $transform_avg[$ref][$base] / ($sum_ref[$ref] - $transform_avg[$ref][$ref]) if($sum_ref[$ref] - $transform_avg[$ref][$ref]);
+#		$transform_rate_tmp = $transform_avg[$ref][$base] / $sum_ref[$ref] if($sum_ref[$ref]);
+		print OUT "$transform_rate_tmp\t";
+	}
+}
+print OUT "\n";
+for(my $qual=$min_qual;$qual<=$max_qual;$qual++)
+{
+	print OUT "$qual\t";
+	for(my $ref=0;$ref<@transform_avg;$ref++)
+	{
+		for(my $base=0;$base<@{$transform_avg[$ref]};$base++)
+		{
+			next if($ref == $base);
+			my $transform_rate_tmp = 0;
+			$transform_rate_tmp = $transform_qual[$qual][$ref][$base] / $transform_qual_sum[$qual][$ref] if($transform_qual_sum[$qual][$ref]);
+#			$transform_rate_tmp = $transform_qual[$qual][$ref][$base] / ($match_qual_sum[$qual]+$mis_qual_sum[$qual]) if($match_qual_sum[$qual]+$mis_qual_sum[$qual]);
 			print OUT "$transform_rate_tmp\t";
 		}
 	}
