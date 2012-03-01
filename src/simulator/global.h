@@ -12,6 +12,7 @@ typedef struct{
   int Is_cyclization;
   int Is_simulate_GC_bias;
   int Is_simulate_quality;
+  int Q_Mode;
   int Q_shift;
   int Output_type;
   double Coverage;

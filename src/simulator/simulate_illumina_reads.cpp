@@ -15,7 +15,7 @@ using namespace std;
 using namespace boost; 
 
 //parameter variable
-PARAMETER InputParameter ={100,500,-1,0,1,1,64,1,40,-1,"","","","","Illumina"};
+PARAMETER InputParameter ={100,500,-1,0,1,1,1,64,1,40,-1,"","","","","Illumina"};
 
 int Ref_Base_num = 0;  //ATCG: 4
 int Statistical_Cycle_num = 0; //the cycle number in Base-calling profile
@@ -29,7 +29,10 @@ ogzstream Gz_outfile2;
 ofstream Outfile1;
 ofstream Outfile2;
 
-double*** Simulation_matrix = NULL;  //for call base and quality simulation
+double*** First_cycle_matrix = NULL;
+double*** Simulation_matrix2 = NULL;
+double**** Simulation_matrix1 = NULL;  //for call base and quality simulation
+double*** Simulation_matrix = NULL; //for simulate fasta
 double* GC_bias_abundance = NULL;  //for GC bias simulation 
 map<int,uint64_t> InsertSize_distr; //record the insert size distribution 
 uint64_t* Error_pos_distr = NULL; //record the error position distribution
@@ -79,9 +82,10 @@ void Usage(){
 	cout<<"\t-x  <double>  coverage,set the sequencing coverage(sometimes called depth),default:"<<InputParameter.Coverage<<endl;
 	cout<<"\t-m  <int>     insertsize_mean,set the average value of insert size,default:"<<InputParameter.Insertsize_mean<<endl;
 	cout<<"\t-v  <int>     insertsize_sd,set the standard deviation of insert sizes, default:insertsize_mean/20"<<endl;
-	cout<<"\t-e  <double>  error_rate,set the average error rate over all cycles,default=average error rate of Base-calling profile"<<endl;
+//	cout<<"\t-e  <double>  error_rate,set the average error rate over all cycles,default=average error rate of Base-calling profile"<<endl;
 	cout<<"\t-g  <int>     whether simulate GC bias, 0:no, 1:yes, default:"<<InputParameter.Is_simulate_GC_bias<<endl;
-	cout<<"\t-q  <int>     whether simulate quality value, 0:no, 1:yes, default:"<<InputParameter.Is_simulate_quality<<endl;
+	cout<<"\t-q  <int>     whether simulate quality value, 0:no(fasta), 1:yes(fastq), default:"<<InputParameter.Is_simulate_quality<<endl;
+	cout<<"\t-M  <int>     whether simulate quality value by Quality-transition mode, 0:no, 1:yes, default:"<<InputParameter.Q_Mode<<endl;
 	cout<<"\t-Q  <int>     Quality value ascii shift, generally 64 or 33 for Illumina data, default:"<<InputParameter.Q_shift<<endl;
 	cout<<"\t-f  <int>     whether cyclize insert sequence(influence on PE-reads direction) 0: read1-forward read2-reverse, 1: read1-reverse read2-forward, default:"<<InputParameter.Is_cyclization<<endl;
 	cout<<"\t-c  <int>     set output file type, 0:text, 1:*.gz, default:"<<InputParameter.Output_type<<endl;
@@ -106,7 +110,7 @@ void Usage(){
 
 void Getopt(int argc,char *argv[]){
 	int c;
-	while ((c=getopt(argc,argv,"i:I:s:d:l:x:m:v:e:f:g:q:Q:c:o:h"))!=-1)
+	while ((c=getopt(argc,argv,"i:I:s:d:l:x:m:v:e:f:g:q:M:Q:c:o:h"))!=-1)
 	{
 		switch(c){
 			case 'i': InputParameter.Input_ref1=optarg;break;
@@ -117,10 +121,11 @@ void Getopt(int argc,char *argv[]){
 			case 'x': InputParameter.Coverage=strtod(optarg,NULL);break;
 			case 'm': InputParameter.Insertsize_mean=atoi(optarg);break;
 			case 'v': InputParameter.Insertsize_sd=atoi(optarg);break;
-			case 'e': InputParameter.Error_rate=strtod(optarg,NULL);break;
+//			case 'e': InputParameter.Error_rate=strtod(optarg,NULL);break;
 			case 'f': InputParameter.Is_cyclization=atoi(optarg);break;
 			case 'g': InputParameter.Is_simulate_GC_bias=atoi(optarg);break;
 			case 'q': InputParameter.Is_simulate_quality=atoi(optarg);break;
+			case 'M': InputParameter.Q_Mode=atoi(optarg);break;
 			case 'Q': InputParameter.Q_shift=atoi(optarg);break;
 			case 'c': InputParameter.Output_type=atoi(optarg);break;
 			case 'o': InputParameter.Output_prefix=optarg;break;
@@ -155,6 +160,7 @@ int main(int argc, char *argv[])
 	if(InputParameter.Is_cyclization != 0 && InputParameter.Is_cyclization != 1){cerr<<"Error: Is_cyclization should be set 0 or 1, please check option -f !"<<endl;exit(-1);}
 	if(InputParameter.Is_simulate_GC_bias != 0 && InputParameter.Is_simulate_GC_bias != 1){cerr<<"Error: Is_simulate_GC_bias should be set 0 or 1, please check option -g !"<<endl;exit(-1);}
 	if(InputParameter.Is_simulate_quality != 0 && InputParameter.Is_simulate_quality != 1){cerr<<"Error: Is_simulate_quality should be set 0 or 1, please check option -q !"<<endl;exit(-1);}
+	if(InputParameter.Q_Mode != 0 && InputParameter.Q_Mode != 1){cerr<<"Error: Q_Mode should be set 0 or 1, please check option -M !"<<endl;exit(-1);}
 	if(InputParameter.Output_type != 0 && InputParameter.Output_type != 1){cerr<<"Error: output_type should be set 0 or 1, please check option -c !"<<endl;exit(-1);}
 	
 	//set the simulate cycle number
@@ -193,42 +199,96 @@ int main(int argc, char *argv[])
   cerr <<	"       "<<InputParameter.Read_length<<"bp reads total average error rate: "<< Statistical_average_error_rate <<endl;
 	
 	//initialize simulation matrix
-	if(InputParameter.Is_simulate_quality){ 
+	if(InputParameter.Is_simulate_quality && InputParameter.Q_Mode == 1){ 
   	//initialize matrix table  Ref_Base_num*Simulate_Cycle_num*Seq_Base_num*Quality_num
-  	Simulation_matrix = new double**[Ref_Base_num];
+  	First_cycle_matrix = new double**[Ref_Base_num];
   	for(int i=0; i<Ref_Base_num; i++)
   	{
-  		Simulation_matrix[i] = new double*[Simulate_Cycle_num];
-  		for(int j=0; j<Simulate_Cycle_num; j++)
+  		First_cycle_matrix[i] = new double*[2];
+  		for(int j=0; j<2; j++)
   		{
-  			Simulation_matrix[i][j] = new double[Seq_Base_num*Quality_num];
+  			First_cycle_matrix[i][j] = new double[Seq_Base_num*Quality_num];
   			for(int k=0; k<Seq_Base_num*Quality_num; k++)
   			{
-  				Simulation_matrix[i][j][k] = 0;
+  				First_cycle_matrix[i][j][k] = 0;
   			}
   		}
   	}
-  }else{ //simulate fa read matrix
-  	//initialize matrix table  Ref_Base_num*Simulate_Cycle_num*Seq_Base_num
-  	Simulation_matrix = new double**[Ref_Base_num];
+
+  	Simulation_matrix1 = new double***[Ref_Base_num];
   	for(int i=0; i<Ref_Base_num; i++)
   	{
-  		Simulation_matrix[i] = new double*[Simulate_Cycle_num];
+  		Simulation_matrix1[i] = new double**[Simulate_Cycle_num];
   		for(int j=0; j<Simulate_Cycle_num; j++)
   		{
-  			Simulation_matrix[i][j] = new double[Seq_Base_num];
-  			for(int k=0; k<Seq_Base_num; k++)
+  			Simulation_matrix1[i][j] = new double*[Quality_num];
+  			for(int k=0; k<Quality_num; k++)
   			{
-  				Simulation_matrix[i][j][k] = 0;
+  				Simulation_matrix1[i][j][k] = new double[Seq_Base_num];
+  				for(int l=0; l<Seq_Base_num; l++)
+  				{
+  					Simulation_matrix1[i][j][k][l] = 0;
+  				}
   			}
   		}
+  	}
+  	
+		Simulation_matrix2 = new double**[Simulate_Cycle_num];
+		for(int i=0; i<Simulate_Cycle_num; i++)
+		{
+			Simulation_matrix2[i] = new double*[Quality_num];
+			for(int j=0; j<Quality_num; j++)
+			{
+  			Simulation_matrix2[i][j] = new double[Quality_num];
+  			for(int k=0; k<Quality_num; k++)
+  			{
+  				Simulation_matrix2[i][j][k] = 0;
+  			}
+			}
+		}
+  }else{ 
+  	if(InputParameter.Is_simulate_quality){
+    	//simulate fq read matrix
+    	//initialize matrix table  Ref_Base_num*Simulate_Cycle_num*Seq_Base_num*Quality_num
+    	Simulation_matrix = new double**[Ref_Base_num];
+    	for(int i=0; i<Ref_Base_num; i++)
+    	{
+    		Simulation_matrix[i] = new double*[Simulate_Cycle_num];
+    		for(int j=0; j<Simulate_Cycle_num; j++)
+    		{
+    			Simulation_matrix[i][j] = new double[Seq_Base_num*Quality_num];
+    			for(int k=0; k<Seq_Base_num*Quality_num; k++)
+    			{
+    				Simulation_matrix[i][j][k] = 0;
+    			}
+    		}
+    	}
+  	}else{
+    	//simulate fa read matrix
+    	//initialize matrix table  Ref_Base_num*Simulate_Cycle_num*Seq_Base_num
+    	Simulation_matrix = new double**[Ref_Base_num];
+    	for(int i=0; i<Ref_Base_num; i++)
+    	{
+    		Simulation_matrix[i] = new double*[Simulate_Cycle_num];
+    		for(int j=0; j<Simulate_Cycle_num; j++)
+    		{
+    			Simulation_matrix[i][j] = new double[Seq_Base_num];
+    			for(int k=0; k<Seq_Base_num; k++)
+    			{
+    				Simulation_matrix[i][j][k] = 0;
+    			}
+    		}
+    	}
   	}
   }
 	
 	//get the simulation matrix
-	load_BaseCalling_profile(InputParameter, exe_path, Statistical_Cycle_num, Seq_Base_num, Quality_num, Statistical_average_error_rate, Simulation_matrix);
-	
-	
+	if(InputParameter.Is_simulate_quality && InputParameter.Q_Mode == 1){
+		load_BaseCalling_profile(InputParameter, exe_path, Statistical_Cycle_num, Seq_Base_num, Quality_num, Statistical_average_error_rate, Simulation_matrix1, First_cycle_matrix);
+		load_BaseCalling_profile(InputParameter, exe_path, Statistical_Cycle_num, Ref_Base_num, Simulate_Cycle_num, Seq_Base_num, Quality_num, Statistical_average_error_rate, Simulation_matrix2);
+	}else{
+		load_BaseCalling_profile(InputParameter, exe_path, Statistical_Cycle_num, Seq_Base_num, Quality_num, Statistical_average_error_rate, Simulation_matrix);
+	}
 	///////////////////////////load GC bias profile///////////////////////////////
 	
 	//get GC abundance for simulate GC bias
@@ -284,15 +344,43 @@ int main(int argc, char *argv[])
 		delete[] GC_bias_abundance;
 	}
 	
-  for(int i=0; i<Ref_Base_num; i++)
-  {
+	if(!InputParameter.Is_simulate_quality || !InputParameter.Q_Mode){
+    for(int i=0; i<Ref_Base_num; i++)
+    {
+    	for(int j=0; j<Simulate_Cycle_num; j++)
+    	{
+    		delete[] Simulation_matrix[i][j];
+    	}
+    	delete[] Simulation_matrix[i];
+    }
+    delete[] Simulation_matrix;
+	}else{
+    for(int i=0; i<Ref_Base_num; i++)
+    {
+    	for(int j=0; j<Simulate_Cycle_num; j++)
+    	{
+    		for(int k=0; k<Quality_num; k++)
+    		{
+    			delete[] Simulation_matrix1[i][j][k];
+    		}
+    		delete[] Simulation_matrix1[i][j];
+    	}
+    	delete[] Simulation_matrix1[i];
+    }
+    delete[] Simulation_matrix1;
+    
+
   	for(int j=0; j<Simulate_Cycle_num; j++)
   	{
-  		delete[] Simulation_matrix[i][j];
+  		for(int k=0; k<Quality_num; k++)
+  		{
+  			delete[] Simulation_matrix2[j][k];
+  		}
+  		delete[] Simulation_matrix2[j];
   	}
-  	delete[] Simulation_matrix[i];
-  }
-  delete[] Simulation_matrix;
+  	delete[] Simulation_matrix2;
+
+	}
 	
 	time_end = time(NULL);
 	cerr<<"All done! Run time: "<<time_end-time_start<<"s."<<endl;
@@ -476,77 +564,235 @@ uint64_t simulate_fq_reads(string &seq,uint64_t seqlen, uint64_t rd_pair, string
 		
 		string output_read1, output_read2, output_quality_seq1, output_quality_seq2;
 		
-		//simulate read1
 		vector<int> error_pos1;
-		vector<char> raw_base1;
-		for(int i = 0; i < InputParameter.Read_length; i++)
+  	vector<char> raw_base1;
+  	vector<int> error_pos2;
+  	vector<char> raw_base2;
+  		
+		if(InputParameter.Q_Mode == 0)
 		{
-			double num=double(rand())/double(RAND_MAX);
-			char ref_base = read1[i];
-			int cycle;
-			if(selection == 0){
-				cycle = i;
-			}else{
-				cycle = i+Simulate_Cycle_num/2;
-			}
-			int location = search_location(Simulation_matrix[alphabet2[ref_base]][cycle], Seq_Base_num*Quality_num, num);
-			int call_base_num = int(location/Quality_num);
-			char call_base = Bases[call_base_num];
-			if(ref_base != call_base){
-				if(selection == 0){
-					Error_pos_distr[i+1]++;
-				}else{
-					Error_pos_distr[i+1+InputParameter.Read_length]++;
-				}
-				error_pos1.push_back(i);
-				raw_base1.push_back(ref_base);
-			}
-			output_read1.push_back(call_base);
-			int Qscore = location%Quality_num;
-			char quality_value = Qscore + InputParameter.Q_shift;  
-			output_quality_seq1.push_back(quality_value);
-			if(selection == 0){
-				Q_to_Erate_distr[i+1]+= pow(10,double(Qscore)/double(-10));
-			}else{
-				Q_to_Erate_distr[i+1+InputParameter.Read_length]+= pow(10,double(Qscore)/double(-10));
-			}
-		}
-		
-		//simulate read2
-		vector<int> error_pos2;
-		vector<char> raw_base2;
-		for(int i = 0; i < InputParameter.Read_length; i++)
-		{
-			double num=double(rand())/double(RAND_MAX);
-			char ref_base = read2[i];
-			int cycle;
-			if(selection == 0){
-				cycle = i+Simulate_Cycle_num/2;
-			}else{
-				cycle = i;
-			}
-				
-			int location = search_location(Simulation_matrix[alphabet2[ref_base]][cycle], Seq_Base_num*Quality_num, num);
-			int call_base_num = int(location/Quality_num);
-			char call_base = Bases[call_base_num];
-			if(ref_base != call_base){
-				if(selection == 0){
-					Error_pos_distr[i+1+InputParameter.Read_length]++;
-				}else{
-					Error_pos_distr[i+1]++;
-				}
-				error_pos2.push_back(i);
-				raw_base2.push_back(ref_base);
-			}
-			output_read2.push_back(call_base);
-			int Qscore = location%Quality_num;
-			char quality_value = Qscore + InputParameter.Q_shift;  
-			output_quality_seq2.push_back(quality_value);
-			if(selection == 0){
-				Q_to_Erate_distr[i+1+InputParameter.Read_length]+= pow(10,double(Qscore)/double(-10));
-			}else{
-				Q_to_Erate_distr[i+1]+= pow(10,double(Qscore)/double(-10));
-			}
+  		//simulate read1
+  		for(int i = 0; i < InputParameter.Read_length; i++)
+  		{
+  			double num=double(rand())/double(RAND_MAX);
+  			char ref_base = read1[i];
+  			int cycle;
+  			if(selection == 0){
+  				cycle = i;
+  			}else{
+  				cycle = i+Simulate_Cycle_num/2;
+  			}
+  			int location = search_location(Simulation_matrix[alphabet2[ref_base]][cycle], Seq_Base_num*Quality_num, num);
+  			int call_base_num = int(location/Quality_num);
+  			char call_base = Bases[call_base_num];
+  			if(ref_base != call_base){
+  				if(selection == 0){
+  					Error_pos_distr[i+1]++;
+  				}else{
+  					Error_pos_distr[i+1+InputParameter.Read_length]++;
+  				}
+  				error_pos1.push_back(i);
+  				raw_base1.push_back(ref_base);
+  			}
+  			output_read1.push_back(call_base);
+  			int Qscore = location%Quality_num;
+  			char quality_value = Qscore + InputParameter.Q_shift;  
+  			output_quality_seq1.push_back(quality_value);
+  			if(selection == 0){
+  				Q_to_Erate_distr[i+1]+= pow(10,double(Qscore)/double(-10));
+  			}else{
+  				Q_to_Erate_distr[i+1+InputParameter.Read_length]+= pow(10,double(Qscore)/double(-10));
+  			}
+  		}
+  		
+  		//simulate read2
+  		for(int i = 0; i < InputParameter.Read_length; i++)
+  		{
+  			double num=double(rand())/double(RAND_MAX);
+  			char ref_base = read2[i];
+  			int cycle;
+  			if(selection == 0){
+  				cycle = i+Simulate_Cycle_num/2;
+  			}else{
+  				cycle = i;
+  			}
+  				
+  			int location = search_location(Simulation_matrix[alphabet2[ref_base]][cycle], Seq_Base_num*Quality_num, num);
+  			int call_base_num = int(location/Quality_num);
+  			char call_base = Bases[call_base_num];
+  			if(ref_base != call_base){
+  				if(selection == 0){
+  					Error_pos_distr[i+1+InputParameter.Read_length]++;
+  				}else{
+  					Error_pos_distr[i+1]++;
+  				}
+  				error_pos2.push_back(i);
+  				raw_base2.push_back(ref_base);
+  			}
+  			output_read2.push_back(call_base);
+  			int Qscore = location%Quality_num;
+  			char quality_value = Qscore + InputParameter.Q_shift;  
+  			output_quality_seq2.push_back(quality_value);
+  			if(selection == 0){
+  				Q_to_Erate_distr[i+1+InputParameter.Read_length]+= pow(10,double(Qscore)/double(-10));
+  			}else{
+  				Q_to_Erate_distr[i+1]+= pow(10,double(Qscore)/double(-10));
+  			}
+  		}
+  		
+		}else{
+  		//simulate read1
+  		
+  		int pre_Q = 0;
+  		for(int i = 0; i < InputParameter.Read_length; i++)
+  		{
+  			double num=double(rand())/double(RAND_MAX);
+  			double num2=double(rand())/double(RAND_MAX);
+  			char ref_base = read1[i];
+  			int cycle;
+  			if(selection == 0){
+  				cycle = i;
+  			}else{
+  				cycle = i+Simulate_Cycle_num/2;
+  			}
+  			
+  			char call_base;
+  			int Qscore;
+  			int location = 0;
+  			int location2 = 0;
+  			if(cycle == 0 || cycle == Simulate_Cycle_num/2){
+  				if(cycle == 0){
+  					location = search_location(First_cycle_matrix[alphabet2[ref_base]][0], Seq_Base_num*Quality_num, num);
+  				}else{
+  					location = search_location(First_cycle_matrix[alphabet2[ref_base]][1], Seq_Base_num*Quality_num, num);
+  				}
+  				
+  //				if(location == 0){cerr<<"num:"<<num<<" cycle:"<<cycle<<" alphabet2[ref_base]:"<<(int)alphabet2[ref_base]<<endl;}
+  				
+  				if(location == Seq_Base_num*Quality_num){
+  					call_base = ref_base;
+  					Qscore = Quality_num -1 ;
+  //					cerr<<"read1 location == Seq_Base_num*Quality_num"<<endl;
+    			} //
+    			else{
+    				int call_base_num = int(location/Quality_num);
+    			  call_base = Bases[call_base_num];
+    			  Qscore = location%Quality_num;
+    			}
+  				
+  			}else{
+  				int location = search_location(Simulation_matrix2[cycle][pre_Q], Quality_num, num);
+  				
+  				if(location == Quality_num){
+  					Qscore = pre_Q;
+    			} //
+    			else{
+    				Qscore = location;
+    			}
+  				int location2 = search_location(Simulation_matrix1[alphabet2[ref_base]][cycle][Qscore], Seq_Base_num, num2);
+  				if(location2 == Seq_Base_num){
+  					call_base = ref_base;
+    			} //
+    			else{
+    				call_base = Bases[location2];
+    			}
+  			}
+  			
+  			pre_Q = Qscore;
+  			
+  			if(ref_base != call_base){
+  				if(selection == 0){
+  					Error_pos_distr[i+1]++;
+  				}else{
+  					Error_pos_distr[i+1+InputParameter.Read_length]++;
+  				}
+  				error_pos1.push_back(i);
+  				raw_base1.push_back(ref_base);
+  			}
+  			output_read1.push_back(call_base);
+  			
+  			char quality_value = Qscore + InputParameter.Q_shift;  
+  			output_quality_seq1.push_back(quality_value);
+  			if(selection == 0){
+  				Q_to_Erate_distr[i+1]+= pow(10,double(Qscore)/double(-10));
+  			}else{
+  				Q_to_Erate_distr[i+1+InputParameter.Read_length]+= pow(10,double(Qscore)/double(-10));
+  			}
+  		}
+  		
+  		//simulate read2
+  		pre_Q = 0;
+  		for(int i = 0; i < InputParameter.Read_length; i++)
+  		{
+  			double num=double(rand())/double(RAND_MAX);
+  			double num2=double(rand())/double(RAND_MAX);
+  			char ref_base = read2[i];
+  			int cycle;
+  			if(selection == 0){
+  				cycle = i+Simulate_Cycle_num/2;
+  			}else{
+  				cycle = i;
+  			}
+  			
+  			char call_base;
+  			int Qscore;
+  			int location = 0;
+  			int location2 = 0;
+  			if(cycle == 0 || cycle == Simulate_Cycle_num/2){
+  				if(cycle == 0){
+  					location = search_location(First_cycle_matrix[alphabet2[ref_base]][0], Seq_Base_num*Quality_num, num);
+  				}else{
+  					location = search_location(First_cycle_matrix[alphabet2[ref_base]][1], Seq_Base_num*Quality_num, num);
+  				}
+  //				if(location == 0){cerr<<"num:"<<num<<" cycle:"<<cycle<<" alphabet2[ref_base]:"<<(int)alphabet2[ref_base]<<endl;}
+  				if(location == Seq_Base_num*Quality_num){
+  					call_base = ref_base;
+  					Qscore = Quality_num-1;
+  //					cerr<<"read2 location == Seq_Base_num*Quality_num"<<endl;
+    			} //
+    			else{
+    				int call_base_num = int(location/Quality_num);
+    			  call_base = Bases[call_base_num];
+    			  Qscore = location%Quality_num;
+    			}
+  				
+  			}else{
+  				int location = search_location(Simulation_matrix2[cycle][pre_Q], Quality_num, num);
+  				
+  				if(location == Quality_num){
+  					Qscore = pre_Q;
+    			} //
+    			else{
+    				Qscore = location;
+    			}
+  				int location2 = search_location(Simulation_matrix1[alphabet2[ref_base]][cycle][Qscore], Seq_Base_num, num2);
+  				if(location2 == Seq_Base_num){
+  					call_base = ref_base;
+    			} //
+    			else{
+    				call_base = Bases[location2];
+    			}
+  			}
+  			pre_Q = Qscore;
+  			if(ref_base != call_base){
+  				if(selection == 0){
+  					Error_pos_distr[i+1+InputParameter.Read_length]++;
+  				}else{
+  					Error_pos_distr[i+1]++;
+  				}
+  				error_pos2.push_back(i);
+  				raw_base2.push_back(ref_base);
+  			}
+  			output_read2.push_back(call_base);
+  
+  			char quality_value = Qscore + InputParameter.Q_shift;  
+  			output_quality_seq2.push_back(quality_value);
+  			if(selection == 0){
+  				Q_to_Erate_distr[i+1+InputParameter.Read_length]+= pow(10,double(Qscore)/double(-10));
+  			}else{
+  				Q_to_Erate_distr[i+1]+= pow(10,double(Qscore)/double(-10));
+  			}
+  		}
 		}
 		
 		//output simulate reads

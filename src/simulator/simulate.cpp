@@ -360,7 +360,7 @@ int search_location(double *Arr, uint64_t ArrNum, double random_num){
 	uint64_t middle = (left+right)/2;
 	
 	if(random_num < Arr[0]){return 0;}
-	if(random_num > Arr[ArrNum-1]){ return ArrNum-1;}
+	if(random_num > Arr[ArrNum-1]){ return ArrNum;}
 	
 	//return the first location of bigger than 0
 	if(random_num == 0){
