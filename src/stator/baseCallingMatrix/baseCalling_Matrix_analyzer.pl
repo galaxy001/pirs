@@ -108,7 +108,7 @@ for(my $i=$min_qual;$i<=$max_qual;$i++)
 my(@sum_row,@sum_cycle,@sum_ref,@sum_cycle_match,@sum_cycle_err,@transform_cycle,@transform_avg,@transform_qual,@transform_qual_sum);
 my(@match_qual_cycle,@mis_qual_cycle);
 my(@match_qual_sum,$match_sum,@mis_qual_sum,$mis_sum,$err_sum);
-my ($value,%MismatchBYQ);
+my ($value,%MismatchBYQ,%MismatchBYQgenome);
 for(my $ref=0;$ref<@matrix;$ref++)
 {
 	for(my $cycle=0;$cycle<@{$matrix[$ref]};$cycle++)
@@ -131,7 +131,9 @@ for(my $ref=0;$ref<@matrix;$ref++)
 					$match_qual_sum[$qual] += $value;
 					$match_sum += $value;
 					$MismatchBYQ{$base}{$qual}->[1] +=$value;
+					$MismatchBYQgenome{$ref}{$qual}->[1] +=$value;
 					$MismatchBYQ{$seq2bit{'_All'}}{$qual}->[1] +=$value;
+					$MismatchBYQgenome{$seq2bit{'_All'}}{$qual}->[1] +=$value;
 				}
 				else
 				{
@@ -140,7 +142,9 @@ for(my $ref=0;$ref<@matrix;$ref++)
 					$mis_sum += $value;
 					$transform_qual_sum[$qual][$ref] += $value;
 					$MismatchBYQ{$base}{$qual}->[0] +=$value;
+					$MismatchBYQgenome{$ref}{$qual}->[0] +=$value;
 					$MismatchBYQ{$seq2bit{'_All'}}{$qual}->[0] +=$value;
+					$MismatchBYQgenome{$seq2bit{'_All'}}{$qual}->[0] +=$value;
 				}
 			}
 			$sum_row[$ref][$cycle] += $sum_tmp;
@@ -353,12 +357,13 @@ close OUT2;
 
 #ddx \%MismatchBYQ;
 open OA,'>',$out.'.err2mis' or die "Error: $!\n";
-print OA "#Read\tQ\tErrRate\tMismatchRate\terrbar\n";
+print OA "#Read\tQ\tErrRate\tMismatchRate\tbyRefMismatchRate\n";
 for my $read (sort keys %MismatchBYQ) {
     for my $Q (sort {$a<=>$b} keys %{$MismatchBYQ{$read}}) {
         my ($mismatch,$match)=@{$MismatchBYQ{$read}{$Q}};
-        next unless $match;
-        print OA "$bit2seq[$read]\t$Q\t",10**(-$Q/10),"\t",$mismatch/($mismatch+$match),"\t",1/($mismatch+$match),"\n";
+		my ($gmismatch,$gmatch)=@{$MismatchBYQgenome{$read}{$Q}};
+        next unless ($match or $gmatch);
+        print OA "$bit2seq[$read]\t$Q\t",10**(-$Q/10),"\t",$mismatch/($mismatch+$match),"\t",$gmismatch/($gmismatch+$gmatch),"\n";
     }
 }
 close OA;
