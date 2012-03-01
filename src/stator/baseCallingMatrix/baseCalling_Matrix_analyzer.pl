@@ -19,8 +19,8 @@
 
 =head1 Version
 	
-	Author: Shi Yujian , shiyujian@genomics.org.cn
-	Version: 1.2 , Date:2011-8
+	Author: Shi Yujian <shiyujian@genomics.org.cn>, Hu Xuesong <galaxy001@gmail.com>
+	Version: 1.21 , Date:20120302
 
 =head1 Usage
 
@@ -107,6 +107,7 @@ for(my $i=$min_qual;$i<=$max_qual;$i++)
 my(@sum_row,@sum_cycle,@sum_ref,@sum_cycle_match,@sum_cycle_err,@transform_cycle,@transform_avg,@transform_qual,@transform_qual_sum);
 my(@match_qual_cycle,@mis_qual_cycle);
 my(@match_qual_sum,$match_sum,@mis_qual_sum,$mis_sum,$err_sum);
+my ($value,%MismatchBYQ);
 for(my $ref=0;$ref<@matrix;$ref++)
 {
 	for(my $cycle=0;$cycle<@{$matrix[$ref]};$cycle++)
@@ -116,24 +117,29 @@ for(my $ref=0;$ref<@matrix;$ref++)
 			my $sum_tmp = 0;
 			for(my $qual=$min_qual;$qual<=$max_qual;$qual++)
 			{
-				$sum_tmp += $matrix[$ref][$cycle][$base][$qual];
-				my $err_tmp = $matrix[$ref][$cycle][$base][$qual] * $q2e[$qual];
+				$value = $matrix[$ref][$cycle][$base][$qual];
+				$sum_tmp += $value;
+				my $err_tmp = $value * $q2e[$qual];
 				$sum_cycle_err[$cycle] += $err_tmp;
 				$err_sum += $err_tmp;
-				$transform_qual[$qual][$ref][$base] += $matrix[$ref][$cycle][$base][$qual];
+				$transform_qual[$qual][$ref][$base] += $value;
 				if($ref == $base)
 				{
-					$sum_cycle_match[$cycle] += $matrix[$ref][$cycle][$base][$qual];
-					$match_qual_cycle[$cycle][$qual] += $matrix[$ref][$cycle][$base][$qual];
-					$match_qual_sum[$qual] += $matrix[$ref][$cycle][$base][$qual];
-					$match_sum += $matrix[$ref][$cycle][$base][$qual];
+					$sum_cycle_match[$cycle] += $value;
+					$match_qual_cycle[$cycle][$qual] += $value;
+					$match_qual_sum[$qual] += $value;
+					$match_sum += $value;
+					$MismatchBYQ{$base}{$qual}->[1] +=$value;
+					$MismatchBYQ{'_All'}{$qual}->[1] +=$value;
 				}
 				else
 				{
-					$mis_qual_cycle[$cycle][$qual] += $matrix[$ref][$cycle][$base][$qual];
-					$mis_qual_sum[$qual] += $matrix[$ref][$cycle][$base][$qual];
-					$mis_sum += $matrix[$ref][$cycle][$base][$qual];
-					$transform_qual_sum[$qual][$ref] += $matrix[$ref][$cycle][$base][$qual];
+					$mis_qual_cycle[$cycle][$qual] += $value;
+					$mis_qual_sum[$qual] += $value;
+					$mis_sum += $value;
+					$transform_qual_sum[$qual][$ref] += $value;
+					$MismatchBYQ{$base}{$qual}->[0] +=$value;
+					$MismatchBYQ{'_All'}{$qual}->[0] +=$value;
 				}
 			}
 			$sum_row[$ref][$cycle] += $sum_tmp;
@@ -343,3 +349,15 @@ for(my $qual=$min_qual;$qual<=$max_qual;$qual++)
 }
 close OUT1;
 close OUT2;
+
+#ddx \%MismatchBYQ;
+open OA,'>',$out.'.err2mis' or die "Error: $!\n";
+print OA "#Read\tQ\tErrRate\tMismatchRate\terrbar\n";
+for my $read (sort keys %MismatchBYQ) {
+    for my $Q (sort {$a<=>$b} keys %{$MismatchBYQ{$read}}) {
+        my ($mismatch,$match)=@{$MismatchBYQ{$read}{$Q}};
+        next unless $match;
+        print OA "$read\t$Q\t",10**(-$Q/10),"\t",$mismatch/($mismatch+$match),"\t",1/($mismatch+$match),"\n";
+    }
+}
+close OA;
