@@ -1,6 +1,7 @@
-#!/usr/bin/perl -w
+#!/bin/env perl
 
 use strict;
+use warnings;
 
 die "Usage: perl $0 <matrix list> <merged outfile>" if(@ARGV<2);
 
