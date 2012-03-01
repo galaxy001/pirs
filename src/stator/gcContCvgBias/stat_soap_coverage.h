@@ -13,6 +13,7 @@ class stat_soap_coverage
 {
     private:
         string str_ref_file_name;
+        string ref_id_file_name;
         string str_output_prefix;
         vector<string> vec_soap_file_name;
         vector<string> vec_width;
@@ -31,7 +32,7 @@ class stat_soap_coverage
         map<int, uint64_t> winCountN;
 
     public:
-        stat_soap_coverage(string str_ref_file_name, string str_output_prefix,
+        stat_soap_coverage(string str_ref_file_name, string ref_id_file_name, string str_output_prefix,
                 vector<string> vec_soap_file_name, vector<string> vec_width,
                 bool b_gcdump = false, bool b_depwindump = false);
         void DealReference();

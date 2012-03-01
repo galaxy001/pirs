@@ -12,11 +12,12 @@
 #include "stat_soap_coverage.h"
 using namespace std;
 
-stat_soap_coverage::stat_soap_coverage(string str_ref_file_name, 
+stat_soap_coverage::stat_soap_coverage(string str_ref_file_name, string ref_id_file_name,
         string str_output_prefix, vector<string> vec_soap_file_name, 
         vector<string> vec_width, bool b_gcdump, bool b_depwindump)
 {
     this->str_ref_file_name = str_ref_file_name;
+    this->ref_id_file_name = ref_id_file_name;
     this->str_output_prefix = str_output_prefix;
     this->vec_soap_file_name = vec_soap_file_name;
     this->vec_width = vec_width;
@@ -34,12 +35,24 @@ stat_soap_coverage::~stat_soap_coverage()
 void stat_soap_coverage::DealReference()
 {
     boost::progress_timer timer;
+    	
+    map<string, int> map_ref_id_name;
+    if(!ref_id_file_name.empty()){
+    	igzstream in1(ref_id_file_name.c_str());
+    	string line1;
+    	while(getline(in1,line1))
+    	{
+    		TrimLeft(line1);
+    		TrimRight(line1);
+    		map_ref_id_name[line1] = 1;
+    	}
+  	}
+    
     igzstream in(str_ref_file_name.c_str());
     string line;
     string keyname = "";
     string sequence = "";
     uint64_t countLine = 0;
-
 
     while(getline(in, line))
     {
@@ -49,9 +62,14 @@ void stat_soap_coverage::DealReference()
         {
             if(sequence.length() != 0)
             {
-                map_reference_base[keyname] = sequence;
-                cerr << "map_reference_base:" << keyname << ":" << sequence.length() << endl;
-                vec_chr_keyname.push_back(keyname);
+            	if(!ref_id_file_name.empty() && map_ref_id_name.count(keyname) == 0)
+            	{
+            		cerr<<"Skipped chromosome: "<<keyname<<endl;
+            	}else{
+              	map_reference_base[keyname] = sequence;
+              	cerr << "map_reference_base:" << keyname << ":" << sequence.length() << endl;
+              	vec_chr_keyname.push_back(keyname);
+            	}
             }
 
             int index;
@@ -67,14 +85,20 @@ void stat_soap_coverage::DealReference()
             sequence.clear();
             continue;
         }
-
+				
         sequence += line;
     }
 
     if(sequence.length() != 0)
     {
-        map_reference_base[keyname] = sequence;
-        vec_chr_keyname.push_back(keyname);
+    	 if(!ref_id_file_name.empty() && map_ref_id_name.count(keyname) == 0)
+       {
+          cerr<<"Skipped chromosome: "<<keyname<<endl;
+       }else{
+       	 map_reference_base[keyname] = sequence;
+       	 cerr << "map_reference_base:" << keyname << ":" << sequence.length() << endl;
+         vec_chr_keyname.push_back(keyname);
+       }
     }
     
     in.close();
@@ -117,6 +141,11 @@ void stat_soap_coverage::DealSoapCoverage()
                     {
                         keyname = line.substr(1);
                     }
+                    
+                    //***2012-2-28 yuanjy
+                    if(map_reference_base.count(keyname) == 0){continue;}
+                    //**
+                    
                     for(int i=0; i<map_reference_base[keyname].size(); ++i)
                     {
                         
@@ -566,43 +595,58 @@ void stat_soap_coverage::DealStat()
             sum_avg += temp_gc_output[gc_keyname[i]][1];
             sum_ref_count += temp_gc_output[gc_keyname[i]][0];
         }
-
+        
         //***2012-2-20 yuanjy
         //Modify mean vaule by LOESS
-        vector<double> modify_mean;
+        
+				double Min_mean = 0;
+				int flag = 0;
+				for(int i=0; i<gc_keyname.size(); ++i)
+				{
+					if( temp_gc_output[gc_keyname[i]][0] >= MIN_LOESS_COUNT){
+						if(flag == 0){
+							Min_mean = temp_gc_output[gc_keyname[i]][1]; 
+							flag = 1;
+						}else{
+							if(temp_gc_output[gc_keyname[i]][1] < Min_mean){
+								Min_mean = temp_gc_output[gc_keyname[i]][1];
+							}
+						}
+					}
+				}
+				vector<double> modify_mean;
         for(int i=0; i<gc_keyname.size(); ++i)
         {
-            double a00 = 0, a01 = 0, a11 = 0, d0 = 0, d1 = 0;
-            int span = 3;
-            for(int j=i-span; j<=i+span; ++j)
-            {
-                if(j<0 || j>=gc_keyname.size() || fabs(gc_keyname[j]-gc_keyname[i]) > span){continue;}
-//                  cerr<<"gc_keyname[j]:"<<gc_keyname[j]<<"\tgc_keyname[i]:"<<gc_keyname[i]<<endl;
-//                  cerr<<"fabs(gc_keyname[j]-gc_keyname[i]):"<<fabs(gc_keyname[j]-gc_keyname[i])<<endl;
-//                  cerr<<"fabs(gc_keyname[j]-gc_keyname[i])/double(span):"<<fabs(gc_keyname[j]-gc_keyname[i])/double(span)<<endl;
-//                  cerr<<"pow(fabs(gc_keyname[j]-gc_keyname[i])/double(span),3.0):"<<pow(fabs(gc_keyname[j]-gc_keyname[i])/double(span),3.0)<<endl;
-//                  cerr<<"(1-pow(fabs(gc_keyname[j]-gc_keyname[i])/double(span),3.0)):"<<(1-pow(fabs(gc_keyname[j]-gc_keyname[i])/double(span),3.0))<<endl;
-                double w = pow((1-pow(fabs(gc_keyname[j]-gc_keyname[i])/double(span),3.0)),1.5);
-//              cerr << "double w:"<<w<<endl;
-                a00 += w;
-                a01 += w*gc_keyname[j];
-                a11 += w*gc_keyname[j]*gc_keyname[j];
-                d0 += w*temp_gc_output[gc_keyname[j]][1]; 
-                d1 += w*gc_keyname[j]*temp_gc_output[gc_keyname[j]][1];
-            }
-            double tem;
-            double EPS = 1E-07;
-            if ( (temp_gc_output[gc_keyname[i]][0] >= MIN_LOESS_COUNT) || ((a11*a00 - a01*a01) < EPS) ) {
-				// patch: only modify those with less DepthCnt.
-                tem = temp_gc_output[gc_keyname[i]][1];
-            } else {
-                tem = (a11*d0-a01*d1)/(a11*a00-a01*a01) + gc_keyname[i] * (a01*d0-a00*d1)/(a01*a01-a00*a11);
-            }
-//          cerr <<tem<<endl;
-            if (tem < 0) {tem = 0;}
-            modify_mean.push_back(tem);
+        	double tem = 0;
+        	double EPS = 1E-07;
+        	if(temp_gc_output[gc_keyname[i]][0] >= MIN_LOESS_COUNT)
+        	{
+        		tem = temp_gc_output[gc_keyname[i]][1];
+        	}else{
+          	double a00 = 0, a01 = 0, a11 = 0, d0 = 0, d1 = 0;
+          	int span = 3;
+          	for(int j=i-span; j<=i+span; ++j)
+          	{
+          		if( j<0 || j>=gc_keyname.size() || fabs(gc_keyname[j]-gc_keyname[i])>span){continue;}
+          		//do not stat those with less DepthCnt 
+          		if((temp_gc_output[gc_keyname[i]][0] < MIN_LOESS_COUNT)){continue;}
+          		double w = pow((1-pow(fabs(gc_keyname[j]-gc_keyname[i])/double(span),3.0)),1.5);
+          		a00 += w;
+          		a01 += w*gc_keyname[j];
+          		a11 += w*gc_keyname[j]*gc_keyname[j];
+          		d0 += w*temp_gc_output[gc_keyname[j]][1]; 
+          		d1 += w*gc_keyname[j]*temp_gc_output[gc_keyname[j]][1];
+          	}
+          	if((a11*a00 - a01*a01) < EPS){
+          		tem = Min_mean;
+          	}else{
+          		tem = (a11*d0-a01*d1)/(a11*a00-a01*a01) + gc_keyname[i] * (a01*d0-a00*d1)/(a01*a01-a00*a11);
+          	}
+          	if(tem < 0){tem = Min_mean;}
+        	}
+        	modify_mean.push_back(tem);
         }
-        //***
+				//***
 /* from smooth.m of MATLAB, function ys = unifloess(y,span,useLoess)
 该函数后面做回归的部分暂时换成了用最小二乘法做的线性回归。
 % LOWESS  Smooth data using Lowess or Loess method.
@@ -647,7 +691,7 @@ References:
      models. Chapter 8 of _Statistical Models in S_ eds J.M. Chambers
      and T.J. Hastie, Wadsworth & Brooks/Cole.
 */
-
+				
         double k = sum_avg/sum_ref_count;
         out << "#WinSize=" << width << "\tWinCount=" << map_sumwincount[width] << "\tDepthCount=" << map_sumdepthcount[width] << endl
             << "#All-N windows count: " << winCountN[width] << endl

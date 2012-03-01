@@ -16,17 +16,18 @@ void usage()
         << "    it is a program to stat about the gc_depth and base coverage ratio and base_depth with *.soap.coverage  result." << endl
         << "Program:" << endl
         << "Name:           gc_coverage_bias" << endl
-        << "Compile Date:   2012-02-23" << endl
-        << "Author:         Gan Jun, Yuan JY, Hu Xuesong" << endl
-        << "Version:        1.02" << endl
+        << "Compile Date:   2012-03-01" << endl
+        << "Author:         Gan Jun, Yuan JY, Shi YJ, Hu Xuesong" << endl
+        << "Version:        1.03" << endl
         << "Contact:        ganjun@genomics.org.cn" << endl;
 
     cerr << "\n\nUsage:\tgc_coverage_bias [options] <*.soap.coverage>" << endl
         << "Option: -r <string>     a reference sequence file about FA format " << endl
-        << "        -o <string>     the the prefix about output file" << endl
+        << "        -c <string>     the designated chromosome id file, one id per line, without settings, processing all the reference sequence" << endl
+        << "        -o <string>     the prefix about output file" << endl
         << "        -w <string>     the window length[such as:100,200,300] " << endl
         << "        --gcdump        output the gc ratio in the window length " << endl
-        << "        --depwindump    output the avg depth in the window length " <<    endl;
+        << "        --depwindump    output the avg depth in the window length " <<  endl;
 
     cerr << "\n\nUsage:" << endl
         << "\t./gc_coverage_bias -r test.fa -o test -w 40,50 [--gcdump --depwindump] test.depth" << endl;
@@ -48,6 +49,7 @@ int main(int argc, char* argv[])
 
     string str_argv;
     string str_ref_file_name;
+    string ref_id_file_name;
     string str_width;
     string str_output_prefix;
     bool b_gcdump = false;
@@ -63,6 +65,13 @@ int main(int argc, char* argv[])
         {
             ++i;
             str_ref_file_name = argv[i];
+            continue;
+        }
+        
+        if(str_argv.compare("-c") == 0)
+        {
+            ++i;
+            ref_id_file_name = argv[i];
             continue;
         }
 
@@ -111,6 +120,19 @@ int main(int argc, char* argv[])
         in.close();
     }
     
+    if(!ref_id_file_name.empty())
+    {
+        igzstream in(ref_id_file_name.c_str());
+
+        if(!in)
+        {
+            cerr << "can't open the designated chromosome id file " << ref_id_file_name << ", please check!" << endl;
+            exit(EXIT_FAILURE);
+        }
+
+        in.close();
+    }
+    
     if(str_output_prefix.empty())
     {
         usage();
@@ -139,7 +161,7 @@ int main(int argc, char* argv[])
         in.close();
     }
 
-    stat_soap_coverage test(str_ref_file_name, str_output_prefix, vec_soap_file_name, vec_width, b_gcdump, b_depwindump);
+    stat_soap_coverage test(str_ref_file_name, ref_id_file_name, str_output_prefix, vec_soap_file_name, vec_width, b_gcdump, b_depwindump);
 }
 
 /*
