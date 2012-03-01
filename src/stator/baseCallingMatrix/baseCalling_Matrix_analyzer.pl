@@ -16,6 +16,7 @@
 	  *.transform.avg.stat : the average the reference nucleotide be sequenced to each nucleotide for all cycle along read
 	  *.qual.mat.dis : the distribution of quality value for matched read base
 	  *.qual.mis.dis : the distribution of quality value for mismatched read base
+	  *.err2mis : from released/pIRS/bwasam/matrixsummer.pl
 
 =head1 Version
 	
@@ -60,8 +61,8 @@ else
 	$out ||= $in_file;
 }
 
-my %seq2bit = ("A"=>0,"C"=>1,"G"=>2,"T"=>3);
-my @bit2seq = ("A","C","G","T");
+my %seq2bit = ("A"=>0,"C"=>1,"G"=>2,"T"=>3,"_All"=>4);
+my @bit2seq = ("A","C","G","T","_All");
 my @matrix;
 open IN,$in_file || die"$!";
 
@@ -130,7 +131,7 @@ for(my $ref=0;$ref<@matrix;$ref++)
 					$match_qual_sum[$qual] += $value;
 					$match_sum += $value;
 					$MismatchBYQ{$base}{$qual}->[1] +=$value;
-					$MismatchBYQ{'_All'}{$qual}->[1] +=$value;
+					$MismatchBYQ{$seq2bit{'_All'}}{$qual}->[1] +=$value;
 				}
 				else
 				{
@@ -139,7 +140,7 @@ for(my $ref=0;$ref<@matrix;$ref++)
 					$mis_sum += $value;
 					$transform_qual_sum[$qual][$ref] += $value;
 					$MismatchBYQ{$base}{$qual}->[0] +=$value;
-					$MismatchBYQ{'_All'}{$qual}->[0] +=$value;
+					$MismatchBYQ{$seq2bit{'_All'}}{$qual}->[0] +=$value;
 				}
 			}
 			$sum_row[$ref][$cycle] += $sum_tmp;
@@ -357,7 +358,7 @@ for my $read (sort keys %MismatchBYQ) {
     for my $Q (sort {$a<=>$b} keys %{$MismatchBYQ{$read}}) {
         my ($mismatch,$match)=@{$MismatchBYQ{$read}{$Q}};
         next unless $match;
-        print OA "$read\t$Q\t",10**(-$Q/10),"\t",$mismatch/($mismatch+$match),"\t",1/($mismatch+$match),"\n";
+        print OA "$bit2seq[$read]\t$Q\t",10**(-$Q/10),"\t",$mismatch/($mismatch+$match),"\t",1/($mismatch+$match),"\n";
     }
 }
 close OA;
