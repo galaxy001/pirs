@@ -15,7 +15,7 @@ using namespace std;
 using namespace boost; 
 
 //parameter variable
-PARAMETER InputParameter ={100,500,-1,0,1,1,1,64,1,40,-1,"","","","","Illumina"};
+PARAMETER InputParameter ={100,500,-1,0,1,1,1,33,1,40,-1,"","","","","Illumina"};
 
 int Ref_Base_num = 0;  //ATCG: 4
 int Statistical_Cycle_num = 0; //the cycle number in Base-calling profile
@@ -85,10 +85,10 @@ void Usage(){
 //	cout<<"\t-e  <double>  error_rate,set the average error rate over all cycles,default=average error rate of Base-calling profile"<<endl;
 	cout<<"\t-g  <int>     whether simulate GC bias, 0:no, 1:yes, default:"<<InputParameter.Is_simulate_GC_bias<<endl;
 	cout<<"\t-q  <int>     whether simulate quality value, 0:no(fasta), 1:yes(fastq), default:"<<InputParameter.Is_simulate_quality<<endl;
-	cout<<"\t-M  <int>     whether simulate quality value by Quality-transition mode, 0:no, 1:yes, default:"<<InputParameter.Q_Mode<<endl;
-	cout<<"\t-Q  <int>     Quality value ascii shift, generally 64 or 33 for Illumina data, default:"<<InputParameter.Q_shift<<endl;
+	cout<<"\t-M  <int>     whether simulate quality value with Quality-transition model, 0:no, 1:yes, default:"<<InputParameter.Q_Mode<<endl;
+	cout<<"\t-Q  <int>     Quality value ascii shift, generally 33 or 64 for Illumina data, default:"<<InputParameter.Q_shift<<endl;
 	cout<<"\t-f  <int>     whether cyclize insert sequence(influence on PE-reads direction) 0: read1-forward read2-reverse, 1: read1-reverse read2-forward, default:"<<InputParameter.Is_cyclization<<endl;
-	cout<<"\t-c  <int>     set output file type, 0:text, 1:*.gz, default:"<<InputParameter.Output_type<<endl;
+	cout<<"\t-c  <int>     set output file type, 0:plain-text, 1:gzipped(*.gz), default:"<<InputParameter.Output_type<<endl;
 	cout<<"\t-o  <string>  output,output file prefix default:"<<InputParameter.Output_prefix<<endl;
 	cout<<"\t-h            output help infomation."<<endl;
 	cout<<endl<<"Example:"<<endl;
