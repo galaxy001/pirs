@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/bin/env perl
 
 =head1 Name
 
@@ -36,6 +36,7 @@
 =cut
 
 use strict;
+use warnings;
 use Getopt::Long;
 
 ##get options from command line into variables and set default values
@@ -355,6 +356,14 @@ for(my $qual=$min_qual;$qual<=$max_qual;$qual++)
 close OUT1;
 close OUT2;
 
+sub misRorTwo($$) {
+	my ($mismatch,$match)=@_;
+	if ($mismatch+$match==0) {
+		return 2;
+	} else {
+		return $mismatch/($mismatch+$match);
+	}
+}
 #ddx \%MismatchBYQ;
 open OA,'>',$out.'.err2mis' or die "Error: $!\n";
 print OA "#Read\tQ\tErrRate\tMismatchRate\tbyRefMismatchRate\n";
@@ -362,8 +371,8 @@ for my $read (sort keys %MismatchBYQ) {
     for my $Q (sort {$a<=>$b} keys %{$MismatchBYQ{$read}}) {
         my ($mismatch,$match)=@{$MismatchBYQ{$read}{$Q}};
 		my ($gmismatch,$gmatch)=@{$MismatchBYQgenome{$read}{$Q}};
-        next unless ($match or $gmatch);
-        print OA "$bit2seq[$read]\t$Q\t",10**(-$Q/10),"\t",$mismatch/($mismatch+$match),"\t",$gmismatch/($gmismatch+$gmatch),"\n";
+        #next unless ($match or $gmatch);
+        print OA "$bit2seq[$read]\t$Q\t",10**(-$Q/10),"\t",misRorTwo($mismatch,$match),"\t",misRorTwo($gmismatch,$gmatch),"\n";
     }
 }
 close OA;
