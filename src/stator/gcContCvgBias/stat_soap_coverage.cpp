@@ -629,7 +629,7 @@ void stat_soap_coverage::DealStat()
           	{
           		if( j<0 || j>=gc_keyname.size() || fabs(gc_keyname[j]-gc_keyname[i])>span){continue;}
           		//do not stat those with less DepthCnt 
-          		if((temp_gc_output[gc_keyname[i]][0] < MIN_LOESS_COUNT)){continue;}
+          		if((temp_gc_output[gc_keyname[j]][0] < MIN_LOESS_COUNT)){continue;}
           		double w = pow((1-pow(fabs(gc_keyname[j]-gc_keyname[i])/double(span),3.0)),1.5);
           		a00 += w;
           		a01 += w*gc_keyname[j];
