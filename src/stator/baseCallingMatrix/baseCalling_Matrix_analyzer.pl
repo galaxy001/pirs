@@ -359,20 +359,24 @@ close OUT2;
 sub misRorTwo($$) {
 	my ($mismatch,$match)=@_;
 	if ($mismatch+$match==0) {
-		return 2;
+		if ($mismatch == 0) {
+			return 0;
+		} else {
+			return 2;
+		}
 	} else {
 		return $mismatch/($mismatch+$match);
 	}
 }
 #ddx \%MismatchBYQ;
 open OA,'>',$out.'.err2mis' or die "Error: $!\n";
-print OA "#Read\tQ\tErrRate\tMismatchRate\tbyRefMismatchRate\n";
+print OA "#Read\tQ\tErrRate\tMismatchRate\tbyRefMismatchRate\tmismatch,match\n";
 for my $read (sort keys %MismatchBYQ) {
     for my $Q (sort {$a<=>$b} keys %{$MismatchBYQ{$read}}) {
         my ($mismatch,$match)=@{$MismatchBYQ{$read}{$Q}};
 		my ($gmismatch,$gmatch)=@{$MismatchBYQgenome{$read}{$Q}};
-        #next unless ($match or $gmatch);
-        print OA "$bit2seq[$read]\t$Q\t",10**(-$Q/10),"\t",misRorTwo($mismatch,$match),"\t",misRorTwo($gmismatch,$gmatch),"\n";
+        next unless ($match+$gmatch+$mismatch+$gmismatch);
+        print OA "$bit2seq[$read]\t$Q\t",10**(-$Q/10),"\t",misRorTwo($mismatch,$match),"\t",misRorTwo($gmismatch,$gmatch),"\t$mismatch,$match\t$gmismatch,$gmatch","\n";
     }
 }
 close OA;
