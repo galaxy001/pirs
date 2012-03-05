@@ -57,8 +57,8 @@ EOH
 }
 
 $main::VERSION=0.1.1;
-our $opts='r:o:l:p:s:c:qb';
-our($opt_o, $opt_r, $opt_l, $opt_p, $opt_s, $opt_c, $opt_q, $opt_b);
+our $opts='r:o:l:p:s:c:t:qb';
+our($opt_o, $opt_r, $opt_l, $opt_p, $opt_s, $opt_c, $opt_t, $opt_q, $opt_b);
 
 #our $desc='';
 our $help=<<EOH;
@@ -69,8 +69,10 @@ our $help=<<EOH;
 \t-o output prefix (./matrix).{count,ratio}.matrix and .{stat,info}
 \t-c ChrID list (./chrtouse)
 \t-q Use Qascii=64 for sam files instead of 33
+\t-t Trim ChrID in ref fasta file to match alignment results (none) [use RegEx for s/\$ARG//;]
 \t-b No pause for batch runs
 For gzipped files, use zcat and pipe(|).
+For bam files, use samtools view -h and pipe(|).
 EOH
 our $ARG_DESC='{sam,soap}pe_files';
 
@@ -84,6 +86,7 @@ die "[x]-r $opt_r not exists !\n" unless -f $opt_r;
 if ($opt_s) {die "[x]-s $opt_s not exists !\n" unless -f $opt_s;}
 
 print STDERR "From [@ARGV]($opt_p) of [$opt_l] with [$opt_r] to [$opt_o]\n";
+print STDERR "ChrID will be trimed by s/$opt_t//;\n" if $opt_t;
 print STDERR "ChrID list:[$opt_c]\n" if $opt_c;
 print STDERR "SNP skipping list:[$opt_s]\n" if $opt_s;
 print STDERR "SAM files with Qascii=64\n" if $opt_q;
@@ -97,6 +100,9 @@ if ($opt_c) {
     open C,'<',$opt_c or die "Error: $!\n";
     while(<C>){
         chomp;
+		if ($opt_t) {
+			s/$opt_t//;
+		}
         ++$Genome{$_};
     }
     close C;
@@ -112,7 +118,14 @@ while (<GENOME>) {
     s/^>//;
 	/^(\S+)/ or next;
 	my $seqname = $1;
-    print STDERR " >$seqname ...";
+	if ($opt_t) {
+		print STDERR " >$seqname";
+		$seqname =~ s/$opt_t//;
+		print STDERR " -> $seqname ...";
+		die "\n[x]ChrID became empty after trim by /$opt_t/ !\n" if $seqname eq '';
+	} else {
+		print STDERR " >$seqname ...";
+	}
 	$/=">";
 	my $genome=<GENOME>;
 	chomp $genome;
@@ -131,6 +144,9 @@ if ($opt_s) {
     while(<SNP>) {
         chomp;
         my ($chr,$pos)=split /\s+/;
+		if ($opt_t) {
+			$chr =~ s/$opt_t//;
+		}
         substr $Genome{$chr},$pos-1,1,'x' if exists $Genome{$chr};
     }
     close SNP;
@@ -231,7 +247,11 @@ sub statRead($$$$$) {
 	} else {
 		$Read_num = 1;
 	}
-    ++$TotalReads unless $PEpos==-1;
+	unless ($PEpos==-1) {
+		++$TotalReads;
+	} else {
+		warn "[d]$cyclestart,$isReverse,$read,$Qstr,$ref\n";
+	}
 	++$PlotReadsQavgHist{$Read_num}{int(2*$SumQ/$READLEN)/2};	# 0 for [0,0.5]
 	++$PlotReadsQavgHist{$Read_num}{-1};
 
