@@ -25,7 +25,11 @@ while (<IN>) {
 }
 close IN;
 
-my $CLI="$SAMTOOLSBIN view -f 3 -F 1792 $name | $CALTUATORBIN -bp sam -l $READLEN @ARGV -o $out >${out}.log 2>${out}.err";
-print "Read_Length of [$name]:\n$READLEN\n\nCLI:[$CLI]\n";
+open O,'>',"${out}.log" or die "Error opening ${out}.log : $!\n";
 
+my $CLI="$SAMTOOLSBIN view -f 3 -F 1792 $name | $CALTUATORBIN -bp sam -l $READLEN @ARGV -o $out >>${out}.log 2>${out}.err";
+print "Read_Length of [$name]:\n$READLEN\n\nCLI:[$CLI]\n";
+print O "BAM:[$name]\nRead_Length: $READLEN\n\nCLI:[$CLI]\n",'-' x 78,"\n\n";
 system $CLI;
+
+close O;
