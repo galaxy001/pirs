@@ -249,7 +249,7 @@ sub statRead($$$$$) {
 	}
 	unless ($PEpos==-1) {
 		++$TotalReads;
-	} else {
+	} else {	# Reach here when the whole ref seq is masked by SNP.
 		warn "[d]$cyclestart,$isReverse,$read,$Qstr,$ref\n";
 	}
 	++$PlotReadsQavgHist{$Read_num}{int(2*$SumQ/$READLEN)/2};	# 0 for [0,0.5]
