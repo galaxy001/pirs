@@ -71,8 +71,8 @@ our $help=<<EOH;
 \t-q Use Qascii=64 for sam files instead of 33
 \t-t Trim ChrID in ref fasta file to match alignment results (none) [use RegEx for s/\$ARG//;]
 \t-b No pause for batch runs
-For gzipped files, use zcat and pipe(|).
-For bam files, use samtools view -h and pipe(|).
+For gzipped files, use [zcat] and pipe(|).
+For bam files, use [samtools view -f 3 -F 1792 -h] and pipe(|).
 EOH
 our $ARG_DESC='{sam,soap}pe_files';
 
@@ -179,7 +179,7 @@ http://en.wikipedia.org/wiki/FASTQ_format#Encoding
 
 Only J supported now.
 =cut
-my ($TotalBase,$TotalReads,%BaseCountTypeRef);
+my ($TotalBase,$TotalReads,%BaseCountTypeRef)=(0,0);
 my ($mapBase,$mapReads,$QBbase,$QBmis)=(0,0,0,0);
 my $Qascii=33;  # Sam 33, Soap 64.
 $Qascii=64 if $opt_q;
@@ -308,39 +308,54 @@ LABEL:
 print STDERR "[!]Input file type is [$type].\n";
 my $start_time = [gettimeofday];
 
-#my ($RL1,$RL2)=(0,0);
+my %NotYetPairedSAM;
+sub DealNotYetPaired($$$$$$$) {
+	my ($CMD,$QNAME,$ref,$isReverse,$read,$Qstr,$cyclestart)=@_;
+	if ($CMD eq 'Del') {
+		delete $NotYetPairedSAM{$QNAME};
+	} elsif ($CMD eq 'Add') {
+		if (exists $NotYetPairedSAM{$QNAME}) {
+			statRead($ref,$isReverse,$read,$Qstr,$cyclestart);
+			($ref,$isReverse,$read,$Qstr,$cyclestart)=@{$NotYetPairedSAM{$QNAME}};
+			statRead($ref,$isReverse,$read,$Qstr,$cyclestart);
+			delete $NotYetPairedSAM{$QNAME};
+		} else {
+			$NotYetPairedSAM{$QNAME}=[$ref,$isReverse,$read,$Qstr,$cyclestart];
+		}
+	}
+	return;
+}
+
 if ($type eq 'sam') {
     while (<>) {
         next if /^@\w\w\t\w\w:/;
         chomp;
         my @read1=split /\t/;
-        chomp($_=<>) or last;
-        my @read2=split /\t/;
-    #print join("\t",@read1),"\n-",join("\t",@read2),"\n";
-        die "[x]Not PE sam file.\n" if $read1[0] ne $read2[0];
         ++$mapReads if $read1[2] ne '*';
-        ++$mapReads if $read2[2] ne '*';
         next unless exists $Genome{$read1[2]};
-        next unless ($read1[1] & 3) == 3;  # paired + mapped in a proper pair
-        next if $read1[1] >= 256;   # not primary || QC failure || optical or PCR duplicate
-        next unless ($read2[1] & 3) == 3;
-        next if $read2[1] >= 256;
-        #$RL1=length($read1[9]);
-        #$RL2=length($read2[9]);
-        next unless $read1[5] =~ /^(\d+)M$/;
-        next unless $1 == $READLEN;
-        next unless $read2[5] =~ /^(\d+)M$/;
-        next unless $1 == $READLEN;
+        next unless ($read1[1] & 3) == 3;  # paired + mapped in a proper pair; samtools view -f 3
+        next if $read1[1] >= 256;   # not primary || QC failure || optical or PCR duplicate; samtools view -F 1792
+		unless ($read1[5] =~ /^(\d+)M$/ && $1 == $READLEN) {
+			DealNotYetPaired('Del',$read1[0],'',0,'','',0);
+			next;
+		}
         next unless $read1[6] eq '=';   # same Reference sequence NAME
-        next unless $read2[6] eq '=';
-        next if $read1[11] eq 'XT:A:R'; # Type: Unique/Repeat/N/Mate-sw, N not found.
-        next if $read2[11] eq 'XT:A:R';
+        #next if $read1[11] eq 'XT:A:R'; # Type: Unique/Repeat/N/Mate-sw, N not found.
+		my $OPT = join("\t",@read1[11 .. $#read1]);
+		next if $OPT =~ /\bXT:A:R\b/;
         my $ref1=uc getBases($read1[2],$read1[3],$READLEN) or print join("\t",@read1),"\n";
-        my $ref2=uc getBases($read2[2],$read2[3],$READLEN) or print join("\t",@read2),"\n";
+		my $ReadCycle;
+		if ($read1[1] & 64) {
+			$ReadCycle = 1;
+		} elsif ($read1[1] & 128) {
+			$ReadCycle = 1 + $READLEN;
+		} else {
+			warn "[w]",join("\t",@read1),"\n";
+			next;
+		}
         #my ($QNAME,$FLAG,$RNAME,$POS,$MAPQ,$CIAGR,$MRNM,$MPOS,$ISIZE,$SEQ,$QUAL,$OPT)=@read1;
         #       0      1    2       3   4       5   6       7     8     9    10    11
-        statRead($ref1,$read1[1] & 16,$read1[9],$read1[10],1);
-        statRead($ref2,$read2[1] & 16,$read2[9],$read2[10],1+$READLEN);
+		DealNotYetPaired('Add',$read1[0],$ref1,$read1[1] & 16,$read1[9],$read1[10],$ReadCycle);
     }
 } else {
     while (<>) {
