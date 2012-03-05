@@ -332,13 +332,19 @@ if ($type eq 'sam') {
         chomp;
         my @read1=split /\t/;
         ++$mapReads if $read1[2] ne '*';
-        next unless exists $Genome{$read1[2]};
-        next unless ($read1[1] & 3) == 3;  # paired + mapped in a proper pair; samtools view -f 3
-        next if $read1[1] >= 256;   # not primary || QC failure || optical or PCR duplicate; samtools view -F 1792
-		unless ($read1[5] =~ /^(\d+)M$/ && $1 == $READLEN) {
+		if ($read1[5] =~ /(\d+)M/) {
+			$mapBase += $1;
+			unless ($1 == $READLEN) {
+				DealNotYetPaired('Del',$read1[0],'',0,'','',0);
+				next;
+			}
+		} else {
 			DealNotYetPaired('Del',$read1[0],'',0,'','',0);
 			next;
 		}
+        next unless exists $Genome{$read1[2]};
+        next unless ($read1[1] & 3) == 3;  # paired + mapped in a proper pair; samtools view -f 3
+        next if $read1[1] >= 256;   # not primary || QC failure || optical or PCR duplicate; samtools view -F 1792
         next unless $read1[6] eq '=';   # same Reference sequence NAME
         #next if $read1[11] eq 'XT:A:R'; # Type: Unique/Repeat/N/Mate-sw, N not found.
 		my $OPT = join("\t",@read1[11 .. $#read1]);
