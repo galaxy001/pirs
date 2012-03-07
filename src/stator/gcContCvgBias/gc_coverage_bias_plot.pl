@@ -27,7 +27,7 @@ while(<IN>) {
     push @GCvalues,$gc;
 }
 close IN;
-
+=pod
 open OUT,'>',$name.'.gc' or die "Error openimg ${name}.gc: $!\n";
 print OUT "#WinSize: $WinSize\n",join("\t",'#GC%(left border)','MeanDepth'),"\n";
 my $step=5; # 5%
@@ -45,7 +45,7 @@ for my $gc (0..100) {
 }
 #print OUT join("\t",$GCvalues[-1],$summer/$counter),"\n" if $counter;
 close OUT;
-
+=cut
 chomp(my $user=`id -nru`);
 my ($gnuplot,$font);
 if ($user eq 'galaxy') {

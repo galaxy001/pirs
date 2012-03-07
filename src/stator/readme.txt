@@ -16,4 +16,5 @@ Insert size & mapping ratio stat:
 1. run soap or bwa to get .{soap,single} or .sam file(s).
 2. run alignment_stator *.
 * alignment_stator cannot stat. mapping ratio for sam files now.
-
+[gzipped sam files can be read as STDIN with "zcat file.sam.gz|",
+ bam files can be used as STDIN with "samtools view -f 3 -F 1792 -h file.bam|".]
