@@ -7,14 +7,13 @@ PERL_LIST = stator/baseCallingMatrix/baseCalling_Matrix_analyzer \
 	stator/gcContCvgBias/gc_coverage_bias_plot
 
 simulator:
-	cd ./src/simulator && ${MAKE}
+	cd ./src/pirs && ${MAKE}
 
 stator:
 	cd ./src/stator/gcContCvgBias && ${MAKE}
 
 symlinks:
-	-@ln -s ./src/simulator/simulate_diploid_genome 2> /dev/null
-	-@ln -s ./src/simulator/simulate_illumina_reads 2> /dev/null
+	-@ln -s ./src/pirs/pirs 2> /dev/null
 	-@ln -s ./src/stator/gcContCvgBias/gc_coverage_bias 2> /dev/null
 	-@ln -s ./src/stator/alignment_stator.pl alignment_stator 2> /dev/null
 	-@for P in ${PERL_LIST}; do \
@@ -22,9 +21,9 @@ symlinks:
 	done
 
 clean:
-	cd ./src/simulator && ${MAKE} clean
+	cd ./src/pirs && ${MAKE} clean
 	cd ./src/stator/gcContCvgBias && ${MAKE} clean
-	-rm simulate_diploid_genome simulate_illumina_reads gc_coverage_bias
+	-rm pirs gc_coverage_bias
 	-@for P in ${PERL_LIST}; do \
 	    rm `basename $${P}`; \
 	done

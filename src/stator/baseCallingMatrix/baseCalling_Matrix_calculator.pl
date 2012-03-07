@@ -423,7 +423,7 @@ $TotalBase=-1 unless $TotalBase;
 my $MisRate=100*$MisBase/$TotalBase;
 print OI "Profile Name: ${opt_o}.(count|ratio).matrix, Generate @ $date by ${user}$mail .\n\n";
 $tmp="#Generate @ $date by ${user}$mail
-#Input [$type] file of mapped Reads: $mapReads , mapped Bases $mapBase (no base stat for sam files)
+#Input [$type] file of mapped Reads: $mapReads , mapped Bases $mapBase
 #Total statistical Bases: $TotalBase , Reads: $TotalReads of ReadLength $READLEN
 #Dimensions: Ref_base_number 4, Cycle_number $Cycle, Seq_base_number 4, Quality_number $Qcount
 #Mismatch_base: $MisBase, Mismatch_rate: $MisRate %
@@ -632,3 +632,6 @@ zcat bwamask/mask110621_I263_FCB066DABXX_L8_HUMjrmRACDKAAPEI-3.sam.gz|head -n200
 Thus, for a LANE of 216009064 lines, which is (108004507 sequences)x2+50, 11.5345804648626 hours needed.
 
 ./baseCalling_Matrix_calculator.pl -c chrtouse -b -o test2 t.sam
+
+TODO:
+add reference masked len.
