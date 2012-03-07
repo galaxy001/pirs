@@ -1,7 +1,7 @@
 #!/bin/env perl
 =pod
 Author: Hu Xuesong @ BGI <huxuesong@genomics.org.cn>
-Version: 0.1.1 @ 20111111
+Version: 1.0.0 @ 20120301
 =cut
 use strict;
 use warnings;

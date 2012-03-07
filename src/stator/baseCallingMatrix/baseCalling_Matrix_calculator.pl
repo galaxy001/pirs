@@ -56,7 +56,7 @@ EOH
 	}
 }
 
-$main::VERSION=0.1.1;
+$main::VERSION=1.0.0;
 our $opts='r:o:l:p:s:c:t:qb';
 our($opt_o, $opt_r, $opt_l, $opt_p, $opt_s, $opt_c, $opt_t, $opt_q, $opt_b);
 

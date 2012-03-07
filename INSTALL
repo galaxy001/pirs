@@ -11,6 +11,7 @@ pIRS requires the following libraries to compile:
 
     zlib (http://www.zlib.net/)
     Boost Libraries (http://www.boost.org/)
+    The GNU Scientific Library (GSL) (http://www.gnu.org/software/gsl/)
 
 pIRS requires the following tools to generate and analyse profiles:
 
@@ -22,7 +23,7 @@ pIRS requires the following tools to generate and analyse profiles:
 
 2. Building
 ===========
-The GNU Compiler Collection version 4.2 and above are needed. (http://gcc.gnu.org/)
+The GNU Compiler Collection version 4.3 and above are needed. (http://gcc.gnu.org/)
 
     make
 
