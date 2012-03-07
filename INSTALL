@@ -18,6 +18,7 @@ pIRS requires the following tools to generate and analyse profiles:
     Gzip (http://www.gnu.org/software/gzip/)
     Gnuplot 4.4 (http://www.gnuplot.info/)
     GNU Core Utilities (http://www.gnu.org/software/coreutils/)
+    SAM Tools (http://samtools.sourceforge.net/)
 
 2. Building
 ===========
