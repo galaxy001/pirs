@@ -1,186 +1,243 @@
 #!/bin/env perl
-=pod
-Author: Hu Xuesong @ BGI <huxuesong@genomics.org.cn>
-Version: 0.1.1 @ 20110819
-=cut
+
 use strict;
 use warnings;
-use Time::HiRes qw ( gettimeofday tv_interval );
-use Getopt::Std;
 
-$Getopt::Std::STANDARD_HELP_VERSION=1;
-sub main::ShowHelp() {
-	if (@main::ARGV == 0) {
-		&main::VERSION_MESSAGE();
-		&main::HELP_MESSAGE();
-		die "\n";
+die "Usage: perl $0 <matrix list> <merged outfile>" if(@ARGV<2);
+
+open IN,$ARGV[0] || die "$!";
+my(@handles,$HAND);
+my $h=0;
+while(<IN>)
+{
+	open $handles[$h++],$_ || die "$!";
+}
+close IN;
+
+open OUT,">$ARGV[1]" || die "$!";
+
+#merge the head of the input files
+my $user="";
+my(@map_reads,@map_base,@stat_base,@stat_reads,@mis_base);
+my($map_reads_sum,$map_base_sum,$stat_base_sum,$stat_reads_sum,$read_len,$mis_base_sum)=(0,0,0,0,0,0);
+my($ref,$base,$cycle,$qual)=(0,0,0,0);
+my($qb_base,$qb_mis)=(0,0);
+my($A,$C,$G,$T);
+for(my $i=0;$i<@handles;$i++)
+{
+	$HAND = $handles[$i];
+	my $data=<$HAND>;
+	chomp $data;
+	if($data=~/by\s+([\s\S]+)$/)
+	{
+		my $tmp=$1;
+		$user .= ";" . $tmp if(!($user=~/$tmp/));
 	}
-	getopts($main::opts);
-}
+	else{die "35\tplease check the input files carefully";}
 
-sub main::HELP_MESSAGE() {
-	$main::help =~ s|\[|[\033[0;0m|g;
-	$main::help =~ s|\]|\033[32;1m]|g;
-	$main::help =~ s|\(|(\033[0;1m|g;
-	$main::help =~ s|\)|\033[32;1m)|g;
-	$main::help =~ s|:(\s*\n?\s*)(\S)|:$1\033[0;1m$2|g;
-	$main::help =~ s|\\\[\033\[0;0m|[|g;
-	$main::help =~ s|\\\033\[32;1m\]|]|g;
-	$main::help =~ s|\\\(\033\[0;1m|(|g;
-	$main::help =~ s|\\\033\[32;1m\)|)|g;
-	$main::help =~ s|\\:(\s*\n?\s*)\033\[0;1m|:$1|g;
-	$main::help =~ s|\n|\033[32;1m\n|g;
-	$main::ARG_DESC='[PROGRAM_ARG1 ...]' unless $main::ARG_DESC;
-	print STDERR <<EOH;
-\nUsage: \033[0;1m$0\033[0;0m [-OPTIONS [-MORE_OPTIONS]] [--] $main::ARG_DESC
+	$data=<$HAND>;
+	if($data=~/#Input\D+(\d+)\D+(\d+)/)
+	{
+		$map_reads[$i] = $1;
+		$map_reads_sum += $1;
+		$map_base[$i] = $2;
+		$map_base_sum += $2;
+	}
+	else{die "45\tplease check the input files carefully";}
 
-The following single-character options are accepted:
-\033[32;1m$main::help\033[0;0mOptions may be merged together.  -- stops processing of options.
-Space is not required between options and their arguments.
-EOH
-}
-sub main::VERSION_MESSAGE() {
-	my $perlv = $];
-	$perlv = sprintf "%vd", $^V if $] >= 5.006;
-	my $ver = sprintf "%vd", $main::VERSION;
-	my ($scr) = ($0 =~ m,([^/\\]+)$,);
-	if ($main::desc) {
-		print STDERR <<EOH;
-\033[32;1m$main::desc\033[0;0m ($scr) version \033[0;1m$ver\033[0;0m,
- running under Perl version $perlv.
-EOH
-	} else {
-		print STDERR <<EOH;
-\033[32;1m$scr\033[0;0m version \033[0;1m$ver\033[0;0m, running under Perl version $perlv.
-EOH
+	$data=<$HAND>;
+	if($data=~/#Total\D+(\d+)\D+(\d+)\D+(\d+)/)
+	{
+		die "read_len is not same" if($read_len !=0 && $read_len != $3);
+		$stat_base[$i] = $1;
+		$stat_base_sum += $1;
+		$stat_reads[$i] = $2;
+		$stat_reads_sum += $2;
+		$read_len = $3;
+	}
+	else{die "57\tplease check the input files carefully";}
+
+	$data=<$HAND>;
+	if($data=~/#Dimensions\D+(\d+)\D+(\d+)\D+(\d+)\D+(\d+)/)
+	{
+		die "ref base classes not same" if($ref!=0 && $ref!=$1);
+		die "cycle number not same" if($cycle!=0 && $cycle!=$2);
+		die "seq base classes not same" if($base!=0 && $base!=$3);
+		die "quality number not same" if($qual!=0 && $qual!=$4);
+		$ref=$1;$cycle=$2;$base=$3;$qual=$4;
+	}
+	else{die "68\tplease check the input files carefully";}
+
+	$data=<$HAND>;
+	if($data=~/#Mismatch_base\D+(\d+)\D+([\d\.]+)/)
+	{
+		$mis_base[$i]=$1;
+		$mis_base_sum += $1;
+	}
+	else{die "76\tplease check the input files carefully";}
+
+	$data=<$HAND>;
+	if($data=~/#QB_Bases\D+(\d+)\D+(\d+)/)
+	{
+		$qb_base += $1;
+		$qb_mis += $2;
+	}
+	else{die "84\tplease check the input files carefully";}
+
+	$data=<$HAND>;
+	if($data=~/#Reference\D+([\d\.]+)\D+([\d\.]+)\D+([\d\.]+)\D+([\d\.]+)/)
+	{
+		$A += $1 * $stat_base[$i];
+		$C += $2 * $stat_base[$i];
+		$G += $3 * $stat_base[$i];
+		$T += $4 * $stat_base[$i];
+	}
+	else{die "94\tplease check the input files carefully";}
+
+	while(<$HAND>)
+	{
+		last if(/DistMatrix/);
 	}
 }
 
-$main::VERSION=0.1.1;
-our $opts='o:b';
-our($opt_o, $opt_b);
-
-#our $desc='';
-our $help=<<EOH;
-\t-o output prefix (./allmatrix).{count,ratio}.matrix
-\t-b No pause for batch runs
-EOH
-our $ARG_DESC='matrix_count_files';
-
-ShowHelp();
-$opt_o='./allmatrix' if ! $opt_o;
-
-print STDERR "From [@ARGV] to [$opt_o]\n";
-unless ($opt_b) {print STDERR 'press [Enter] to continue...'; <STDIN>;}
-
-my $start_time = [gettimeofday];
-#BEGIN
-my $READLEN=0;
-my $Qcount=41;
-my ($TotalReads,$TotalBase,$MisBase,%BaseCountTypeRef)=(0,0,0);
-my ($mapBase,$mapReads,$QBbase,$QBmis)=(0,0,0,0);
-my $type='N/A';
-my %Stat;   # $Stat{Ref}{Cycle}{Read-Quality}
-my @BQHeader;
-while (<>) {
-    if (/^#Input \[(\w+)\] file of mapped Reads: (\d+) , mapped Bases (\d+) \(no base stat for sam files\)$/) {
-        $type=$1 if $type ne 'sam';
-        $mapReads += $2;
-        $mapBase += $3 if $type ne 'sam';
-    }
-    if (/^#Total statistical Bases: (\d+) , Reads: (\d+) of ReadLength (\d+)$/) {
-        print " >$ARGV|   Reads:$2   ReadLen:$3   Bases:$1\n";
-        $TotalReads += $2;
-        $READLEN = $3 if $READLEN < $3;
-    }
-    if (/^#Ref\tCycle\t/) {
-        #s/^#//;
-        chomp;
-        (undef,undef,@BQHeader)=split /\t/;
-        pop @BQHeader if $BQHeader[-1] eq 'RowSum';
-    }
-    if (/^#Dimensions:.+?Quality_number (\d+)$/) {
-        $Qcount = $1 if $Qcount<$1;
-    }
-    if (/^#Mismatch_base: (\d+)/) {
-        $MisBase += $1;
-    }
-    if (/^#QB_Bases: (\d+), QB_Mismatches: (\d+)/) {
-        $QBbase += $1;
-        $QBmis += $2;
-    }
-    next if /^#/;
-    next if /^$/;
-    chomp;
-    my ($ref,$cycle,@BQ)=split /\t/;
-    #print "$ref,$cycle,@BQ\n";
-    next unless $ref =~ /^[ATCG]$/;
-    #die "[$_]\n$ref,$cycle,[@BQ]\n$#BQ < $#BQHeader " if $#BQ < $#BQHeader;
-    for my $key (@BQHeader) {
-        my $value=shift @BQ;
-        $Stat{$ref}{$cycle}{$key}+=$value;
-        $BaseCountTypeRef{$ref}+=$value;
-        $TotalBase+=$value;
-        #print "{$ref}{$cycle}{$key}$value\n";
-    }
-}
-#print $TotalReads,"\t",$READLEN,"\n";
-#print join("\t",@BQHeader),"\n";
-open OA,'>',$opt_o.'.count.matrix' or die "Error: $!\n";
-open OB,'>',$opt_o.'.ratio.matrix' or die "Error: $!\n";
-my $tmp;
-chomp(my $user=`id -nru`);
-@ARGV=('/etc/passwd');
-chomp(my @passwd=<>);
-($_)=grep /$user/,@passwd;
-$tmp=(split /:/)[4];
-my $mail='';
-$mail=" <$tmp>" unless $tmp =~ /^\s*$/;
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime(time);
 my $date=sprintf "%02d:%02d:%02d,%4d-%02d-%02d",$hour,$min,$sec,$year+1900,$mon+1,$mday;
-my $Cycle=2*$READLEN;
-my $MisRate=100*$MisBase/$TotalBase;
-$tmp="#Generate @ $date by ${user}$mail
-#Input [$type] file of Reads: $mapReads , Bases $mapBase (no base stat for sam files)
-#Total statistical Bases: $TotalBase , Reads: $TotalReads of ReadLength $READLEN
-#Dimensions: Ref_base_number 4, Cycle_number $Cycle, Seq_base_number 4, Quality_number $Qcount
-#Mismatch_base: $MisBase, Mismatch_rate: $MisRate %
-#QB_Bases: $QBbase, QB_Mismatches: $QBmis (bases with quality <= 2)
-#Reference Base Ratio in reads: ";
-my @BaseOrder=sort keys %BaseCountTypeRef;  # qw{A T C G};
-for (@BaseOrder) {
-    $tmp .= $_.' '. int(0.5+100*1000*$BaseCountTypeRef{$_}/$TotalBase)/1000 .' %;   ';
+print OUT "#Generate \@ $date by$user\n";
+print OUT "#Input [sam] file of mapped Reads: $map_reads_sum , mapped Bases $map_base_sum (no base stat for sam files)\n";
+print OUT "#Total statistical Bases: $stat_base_sum , Reads: $stat_reads_sum of length $read_len\n";
+print OUT "#Dimensions: Ref_base_number $ref, Cycle_number $cycle, Seq_base_number $base, Quality_number $qual\n";
+my $mis_rate = $mis_base_sum / $stat_base_sum * 100;
+print OUT "#Mismatch_base: $mis_base_sum, Mismatch_rate: $mis_rate %\n";
+print OUT "#QB_Bases: $qb_base, QB_Mismatches: $qb_mis (bases with quality <= 2)\n";
+$A /= $stat_base_sum;
+$C /= $stat_base_sum;
+$G /= $stat_base_sum;
+$T /= $stat_base_sum;
+print OUT "#Reference Base Ratio in reads: A $A %;   C $C %;   G $G %;   T $T %;\n";
+print OUT "\n\[DistMatrix\]\n";
+
+#my $type = "";
+my $head = "";
+for(my $i=0;$i<@handles;$i++)
+{
+	$HAND = $handles[$i];
+	my $data = <$HAND>;
+#	if($data=~/Type\s+\=\s+(\w+)/)
+#	{
+#		die "types are not same" if($type ne "" && $type ne $1);
+#		$type = $1;
+#	}
+#	else{die "129\tplease check the input files carefully";}
+	
+#	$data = <$HAND>;
+	die "the heads are not same" if($head ne "" && $head ne $data);
+	$head = $data;
 }
+#print OUT "Type = $type\n$head";
+print OUT $head;
 
-$tmp .= "\n#".join("\t",'Ref','Cycle',@BQHeader);
-print OA $tmp;
-print OB $tmp;
-print OA "\tRowSum";
-print OB "\n";
-my ($count,$countsum);
-for my $ref (@BaseOrder) {
-    print OA "\n";
-    for my $cycle (sort {$a<=>$b} keys %{$Stat{$ref}}) {
-        $tmp="$ref\t$cycle\t";
-        print OA $tmp; print OB $tmp;
-        my (@Counts,@Rates)=();
-        for my $bq (@BQHeader) {
-            push @Counts,$Stat{$ref}{$cycle}{$bq};
-        }
-        #print "[",join("|",@Counts),"\n";
-        $countsum=0;
-        $countsum += $_ for @Counts;
-        push @Rates,$_/$countsum for @Counts;
-        print OA join("\t",@Counts,$countsum),"\n";
-        print OB join("\t",@Rates),"\n";
-    }
+$HAND = $handles[0];
+while(<$HAND>)
+{
+	chomp;
+	if(/END/)
+	{
+		for(my $i=1;$i<@handles;$i++)
+		{
+			$HAND = $handles[$i];
+			my $data = <$HAND>;
+			die "147\tplease check the input files carefully" unless($data=~/END/);
+		}
+		last;
+	}
+	my @sum = split;
+	for(my $i=1;$i<@handles;$i++)
+	{
+		$HAND = $handles[$i];
+		my $data = <$HAND>;
+		my @line = split /\s+/,$data;
+		die "157\tplease check the input files carefully" if($line[0] ne $sum[0] || $line[1] != $sum[1] || $#sum != $#line);
+		for(my $j=2;$j<@sum;$j++)
+		{
+			$sum[$j] += $line[$j];
+		}
+	}
+	for(my $j=0;$j<$#sum;$j++)
+	{
+		print OUT "$sum[$j]\t";
+	}
+	print OUT "$sum[-1]\n";
+	$HAND = $handles[0];
 }
-close OA;
-close OB;
+print OUT "<<END\n";
 
-#END
-my $stop_time = [gettimeofday];
+for(my $i=0;$i<@handles;$i++)
+{
+	$HAND = $handles[$i];
+	while(<$HAND>)
+	{
+		last if(/QTransMatrix/);
+	}
+}
+print OUT "\n\[QTransMatrix\]\n";
+#$type = "";
+$head = "";
+for(my $i=0;$i<@handles;$i++)
+{
+	$HAND = $handles[$i];
+	my $data = <$HAND>;
+#	if($data=~/Type\s+=\s+(\w+)/)
+#	{
+#		die "types are not same" if($type ne "" && $type ne $1);
+#		$type = $1;
+#	}
+#	else{die "192\tplease check the input files carefully";}
+	
+#	$data = <$HAND>;
+	die "the heads are not same" if($head ne "" && $head ne $data);
+	$head = $data;
+}
+#print OUT "Type = $type\n$head";	
+print OUT $head;
 
-print STDERR "\nTime Elapsed:\t",tv_interval( $start_time, $stop_time )," second(s).\n";
-__END__
+$HAND = $handles[0];
+while(<$HAND>)
+{
+	chomp;
+	if(/END/)
+	{
+		for(my $i=1;$i<@handles;$i++)
+		{
+			$HAND = $handles[$i];
+			my $data = <$HAND>;
+			die "210\tplease check the input files carefully" unless($data=~/END/);
+		}
+		last;
+	}
+	my @sum = split;
+	for(my $i=1;$i<@handles;$i++)
+	{
+		$HAND = $handles[$i];
+		my $data = <$HAND>;
+		my @line = split /\s+/,$data;
+		die "220\tplease check the input files carefully" if($line[0] ne $sum[0] || $line[1] != $sum[1] || $#sum != $#line);
+		for(my $j=2;$j<@sum;$j++)
+		{
+			$sum[$j] += $line[$j];
+		}
+	}
+	for(my $j=0;$j<$#sum;$j++)
+	{
+		print OUT "$sum[$j]\t";
+	}
+	print OUT "$sum[-1]\n";
+	$HAND = $handles[0];
+}
+print OUT "<<END\n";
 
+for(my $i=0;$i<@handles;$i++)
+{
+	$HAND = $handles[$i];
+	close $HAND;
+}
+close OUT;
