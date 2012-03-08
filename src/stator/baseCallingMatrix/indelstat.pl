@@ -43,7 +43,7 @@ if ($name =~ /\.bam$/) {
 }
 
 my (%Cnt,%DistIns,%DistDel);
-my ($Read12,$PosShift,$cigar);
+my ($Read12,$PosShift,$cigar,$DelShift);
 while (<IN>) {
 	next if /^@\w\w\t\w\w:/;
 	chomp;
@@ -63,9 +63,11 @@ while (<IN>) {
 	}
 	++$Cnt{$Read12}{'All'};
 	if ($read1[1] & 16) {	#  | r  | 0x0010 | strand of the query (1 for reverse)   |
-		$PosShift = $READLEN + 1;
-	} else {
+		$PosShift = -$READLEN - 1;
+		$DelShift = 0;
+	} else {	# +
 		$PosShift = 0;
+		$DelShift = -1;
 	}
 	$cigar=$read1[5];
 	if ($read1[5] =~ /(\d+)[ID]/) {	# I/D in reads
@@ -79,14 +81,14 @@ while (<IN>) {
             } elsif ($cigar_part =~ /(\d+)I/){
 				$Cnt{$Read12}{'Ins'} += $1;
 				for my $p ($position .. ($position + $1 -1)) {
-					$DistIns{$Read12}{abs($p-$PosShift)}++;
-warn "$position -> ",$position-$PosShift,"\t$1\t$cigar\t$cigar_part\n$_\n" if abs($position-$PosShift)<=1 or abs($position-$PosShift)>=$READLEN;
+					$DistIns{$Read12}{abs($p+$PosShift)}++;
+warn "$position -> ",$position+$PosShift,"\t$1\t$cigar\t$cigar_part\n$_\n" if abs($position+$PosShift)<=1 or abs($position+$PosShift)>=$READLEN;
 				}
-#warn "$position -> ",$position-$PosShift,"\t$cigar\t$cigar_part\n$_\n" if abs($position-$PosShift)<1 or abs($position-$PosShift)>$READLEN;
+#warn "$position -> ",$position+$PosShift,"\t$cigar\t$cigar_part\n$_\n" if abs($position+$PosShift)<1 or abs($position+$PosShift)>$READLEN;
                $position += $1;
             } elsif ($cigar_part =~ /(\d+)D/){
 				$Cnt{$Read12}{'Del'} += $1;
-				my $p=abs($position-1-$PosShift);
+				my $p=abs($position+$DelShift+$PosShift);
 				$DistDel{$Read12}{$p}{$1}++;	# 99M1D1M: D@99, not 100.
 				$DistDel{$Read12}{-1}++;
 warn "$position -> ",$p,"\t$1\t$cigar\t$cigar_part\n$_\n" if $p<1 or $p>=$READLEN;
