@@ -89,7 +89,7 @@ warn "$position -> ",$position-$PosShift,"\t$1\t$cigar\t$cigar_part\n$_\n" if ab
 				my $p=abs($position-1-$PosShift);
 				$DistDel{$Read12}{$p}{$1}++;	# 99M1D1M: D@99, not 100.
 				$DistDel{$Read12}{-1}++;
-warn "$position -> ",$p,"\t$1\t$cigar\t$cigar_part\n$_\n" if $p<=1 or $p>=$READLEN;
+warn "$position -> ",$p,"\t$1\t$cigar\t$cigar_part\n$_\n" if $p<1 or $p>=$READLEN;
                #$position += $1;
             } elsif ($cigar_part =~ /(\d+)S/){
                die "[!]Not ready for this!\n";
