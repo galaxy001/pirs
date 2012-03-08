@@ -78,16 +78,18 @@ while (<IN>) {
                $position += $1;
             } elsif ($cigar_part =~ /(\d+)I/){
 				$Cnt{$Read12}{'Ins'} += $1;
-				$DistIns{$Read12}{abs($position-$PosShift)}{$1}++;
-				$DistIns{$Read12}{-1}++;
-warn "$position -> ",$position-$PosShift,"\t$cigar\t$cigar_part\n$_\n" if abs($position-$PosShift)<1 or abs($position-$PosShift)>$READLEN;
+				for my $p ($position .. ($position + $1 -1)) {
+					$DistIns{$Read12}{abs($p-$PosShift)}++;
+warn "$position -> ",$position-$PosShift,"\t$1\t$cigar\t$cigar_part\n$_\n" if abs($position-$PosShift)<=1 or abs($position-$PosShift)>=$READLEN;
+				}
+#warn "$position -> ",$position-$PosShift,"\t$cigar\t$cigar_part\n$_\n" if abs($position-$PosShift)<1 or abs($position-$PosShift)>$READLEN;
                $position += $1;
             } elsif ($cigar_part =~ /(\d+)D/){
 				$Cnt{$Read12}{'Del'} += $1;
-				for my $p ($position .. ($position + $1 -1)) {
-					$DistDel{$Read12}{abs($p-$PosShift)}++;
-				}
-warn "$position -> ",$position-$PosShift,"\t$1\t$cigar\t$cigar_part\n$_\n" if abs($position-$PosShift)<1 or abs($position-$PosShift)>$READLEN;
+				my $p=abs($position-1-$PosShift);
+				$DistDel{$Read12}{$p}{$1}++;	# 99M1D1M: D@99, not 100.
+				$DistDel{$Read12}{-1}++;
+warn "$position -> ",$p,"\t$1\t$cigar\t$cigar_part\n$_\n" if $p<=1 or $p>=$READLEN;
                #$position += $1;
             } elsif ($cigar_part =~ /(\d+)S/){
                die "[!]Not ready for this!\n";
@@ -107,7 +109,7 @@ warn "$position -> ",$position-$PosShift,"\t$1\t$cigar\t$cigar_part\n$_\n" if ab
 close IN;
 
 open O,'>',$out or die "Error opening ${out} : $!\n";
-print O "File=$name\nReadLen=$READLEN\n\nRead\tType\tCount\tRatio\n";
+print O "File=$name\nRead_Length=$READLEN\n\nRead\tType\tCount\tRatio\n";
 for my $Read12 (sort keys %Cnt) {
 	for (sort keys %{$Cnt{$Read12}}) {
 		#next if $_ eq 'All';
@@ -115,20 +117,20 @@ for my $Read12 (sort keys %Cnt) {
 	}
 }
 
-print O "\nRead\tCycle\tIns\tCount\tRatio\n";
-for my $Read12 (sort keys %DistIns) {
-	for my $cyc (sort {$a<=>$b} keys %{$DistIns{$Read12}}) {
+print O "\nRead\tCycle\tDel\tCount\tRatio\n";
+for my $Read12 (sort keys %DistDel) {
+	for my $cyc (sort {$a<=>$b} keys %{$DistDel{$Read12}}) {
 		next if $cyc == -1;
-		for my $ins (sort {$a<=>$b} keys %{$DistIns{$Read12}{$cyc}}) {
-			print O "$Read12\t$cyc\t$ins\t$DistIns{$Read12}{$cyc}{$ins}\t",$DistIns{$Read12}{$cyc}{$ins}/$DistIns{$Read12}{-1},"\n";
+		for my $ins (sort {$a<=>$b} keys %{$DistDel{$Read12}{$cyc}}) {
+			print O "$Read12\t$cyc\t$ins\t$DistDel{$Read12}{$cyc}{$ins}\t",$DistDel{$Read12}{$cyc}{$ins}/$DistDel{$Read12}{-1},"\n";
 		}
 	}
 }
 
-print O "\nRead\tCycle\tDel\tRatio\n";
-for my $Read12 (sort keys %DistDel) {
-	for my $cyc (sort {$a<=>$b} keys %{$DistDel{$Read12}}) {
-		print O "$Read12\t$cyc\t$DistDel{$Read12}{$cyc}\t",$DistDel{$Read12}{$cyc}/$Cnt{$Read12}{'Del'},"\n";
+print O "\nRead\tCycle\tIns\tRatio\n";
+for my $Read12 (sort keys %DistIns) {
+	for my $cyc (sort {$a<=>$b} keys %{$DistIns{$Read12}}) {
+		print O "$Read12\t$cyc\t$DistIns{$Read12}{$cyc}\t",$DistIns{$Read12}{$cyc}/$Cnt{$Read12}{'Ins'},"\n";
 	}
 }
 
