@@ -9,6 +9,10 @@ typedef struct{
   int Read_length;
   int Insertsize_mean;
   int Insertsize_sd;
+  double Ins_rate1;
+  double Del_rate1;
+  double Ins_rate2;
+  double Del_rate2;
   int Is_cyclization;
   int Is_simulate_GC_bias;
   int Is_simulate_quality;
@@ -17,7 +21,7 @@ typedef struct{
   int Output_type;
   double Coverage;
   double Error_rate;
-	string Input_ref1;
+  string Input_ref1;
   string Input_ref2;
   string BaseCalling_profile;
   string GC_depth_profile;

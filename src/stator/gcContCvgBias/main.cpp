@@ -16,14 +16,14 @@ void usage()
         << "    it is a program to stat about the gc_depth and base coverage ratio and base_depth with *.soap.coverage  result." << endl
         << "Program:" << endl
         << "Name:           gc_coverage_bias" << endl
-        << "Compile Date:   2012-03-01" << endl
-        << "Author:         Gan Jun, Yuan JY, Shi YJ, Hu Xuesong" << endl
-        << "Version:        1.03" << endl
-        << "Contact:        ganjun@genomics.org.cn" << endl;
+        << "Compile Date:   2012-03-05" << endl
+        << "Author:         BGI-Shenzhen" << endl
+        << "Version:        1.0" << endl
+        << "Contact:        Xuesong Hu(galaxy001@gmail.com)" << endl;
 
     cerr << "\n\nUsage:\tgc_coverage_bias [options] <*.soap.coverage>" << endl
         << "Option: -r <string>     a reference sequence file about FA format " << endl
-        << "        -c <string>     the designated chromosome id file, one id per line, without settings, processing all the reference sequence" << endl
+        << "        -c <string>     the designated chromosome id list file, one id per line, without settings, processing all the reference sequence" << endl
         << "        -o <string>     the prefix about output file" << endl
         << "        -w <string>     the window length[such as:100,200,300] " << endl
         << "        --gcdump        output the gc ratio in the window length " << endl

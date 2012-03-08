@@ -1,9 +1,28 @@
 #!/bin/env perl
 
+=head1 Name
+
+	baseCalling_Matrix_merger.pl
+
+=head1 Description
+
+	merge the baseCalling matrix together
+
+=head1 Version
+	
+	Author: Shi Yujian <shiyujian@genomics.org.cn>, Hu Xuesong <galaxy001@gmail.com>
+	Version: 1.00 , Date:20120302
+
+=head1 Usage
+
+	perl baseCalling_Matrix_merger.pl <matrix list> <merged outfile>
+
+=cut
+
 use strict;
 use warnings;
 
-die "Usage: perl $0 <matrix list> <merged outfile>" if(@ARGV<2);
+die `pod2text $0`  if(@ARGV<2);
 
 open IN,$ARGV[0] || die "$!";
 my(@handles,$HAND);

@@ -9,13 +9,12 @@
 #include "gzstream.h"
 
 using namespace std;
-using namespace boost; 
 
 string input;
 double hetersnp_rate=0.001;
 double heterindel_rate=0.0001;
 double big_SV_rate=0.000001; // structural variation rate
-double snp_transition_by_transvertion_rate = 2; //transition_number £ºtransvertion_rate_number = 2
+double snp_transition_by_transvertion_rate = 2; //transition_number : transvertion_rate_number = 2
 int output_type = 1;
 ofstream outfile;
 ogzstream gz_outfile;
@@ -28,39 +27,33 @@ void Get_raw_genome(igzstream &inf, ofstream &snp, ofstream &indel, ofstream &in
 //add snp and indel in raw seqence, and output result sequence.
 void simulate_snp_indel_seq(string id_line,string id,string &sequ, ofstream &snp,ofstream &indel, ofstream &invertion);
 
-const char *VERSION="1.0";
-const char *AUTHOR="BGI-Shenzhen";
-const char *CONTACT="yuanjianying@genomics.org.cn";
 
-void Usage(){
+void SimDiploid_Usage(){
 	cout<<"\nDescription:"<<endl;
 	cout<<endl;
-	cout<<"\tIt is a program for simulating heterozygosis in diploid, such as SNP, small InDel and structural variation (large insertion, deletion and inversion). ";
-	cout<<"When simulate SNP, we can set the total SNP rate with option -s, and set the value of transition divided by transvertion with option -a. ";
-	cout<<"When simulate small InDel: insertion and deletion share 1/2 of the total rate respectively, 1~6bp bases as the InDel number ,and the ";
+	cout<<"\tIt is a program for simulating heterozygosis in diploid, such as SNP, InDel and structural variation (insertion, deletion and inversion). ";
+	cout<<"When simulating SNP, we can set the total SNP rate with option -s and set the value of transition divided by transvertion with option -a. ";
+	cout<<"When simulating InDel: they go halves on the total rate respectively, 1~6bp bases as the InDel number ,and the ";
 	cout<<"rate distribution of each type as below: 1bp-64.82%, 2bp-17.17%, 3bp-7.20%, 4bp-7.29%, 5bp-2.18%, 6bp-1.34%, which is the empirical distribution from panda re-sequencing data, we can ";
-	cout<<"set the total small InDel rate with option -d. When simulate SV(structural variation): large insertion, deletion and invertion, each of them share 1/3 of total rate, here we use this rate ";
-	cout<<"distribution: 100bp-70%, 200bp-20%, 500bp-7%, 1000bp-2%, 2000bp-1%, we can set the total SV rate with option -v. ";
+	cout<<"set the total InDel rate with option -d. When simulating SV(structural variation): insertion, deletion and inversion, each of them share 1/3 of total rate, here we use this rate ";
+	cout<<"distribution for simplicity: 100bp-70%, 200bp-20%, 500bp-7%, 1000bp-2%, 2000bp-1%, we can set the total SV rate with option -v. ";
 	cout<<"Input sequence must be set ,because there is no default value."<<endl;
-	cout<<endl<<"Program: simulate_diploid_genome"<<endl;
-	cout<<"\tAuthor: "<<AUTHOR<<endl;
-	cout<<"\tVersion: "<<VERSION<<endl;
-	cout<<"\tContact: "<<CONTACT<<endl;
-	cout<<endl<<"Usage:\tsimulate_diploid_genome [options]"<<endl;
-	cout<<"\t-i	<string>	input,input reference genome sequence *.fa/*.fa.gz"<<endl;
-	cout<<"\t-s	<double>	set the heterozygous SNP rate of the diploid genome,default:"<<hetersnp_rate<<endl;
-	cout<<"\t-a	<double>	set the value of transition divided by transvertion for heterSNP,default:"<<snp_transition_by_transvertion_rate<<endl;
-	cout<<"\t-d	<double>	set the small InDel rate of the diploid genome,default:"<<heterindel_rate<<endl;
-	cout<<"\t-v	<double>	set the structural variation rate(large insertion,deletion,invertion) of the diploid genome,default:"<<big_SV_rate<<endl;
-	cout<<"\t-c	<int>   	set ouput file type, 0:text, 1:*.gz, default:"<< output_type <<endl;
-	cout<<"\t-o	<string>	set output file prefix default:"<<output_prefix<<endl;
+	cout<<endl<<"Program: pirs diploid"<<endl;
+	cout<<endl<<"Usage:\t./pirs diploid [options]"<<endl;
+	cout<<"\t-i	<string>	input reference genome sequence *.fa/*.fa.gz"<<endl;
+	cout<<"\t-s	<double>	the heterozygous SNP rate of the diploid genome,default:"<<hetersnp_rate<<endl;
+	cout<<"\t-a	<double>	the value of transition divided by transvertion for heterSNP,default:"<<snp_transition_by_transvertion_rate<<endl;
+	cout<<"\t-d	<double>	the InDel rate of the diploid genome,default:"<<heterindel_rate<<endl;
+	cout<<"\t-v	<double>	the structural variation rate(large insertion,deletion,invertion) of the diploid genome,default:"<<big_SV_rate<<endl;
+	cout<<"\t-c	<int>   	ouput file type, 0:text, 1:*.gz, default:"<< output_type <<endl;
+	cout<<"\t-o	<string>	output file prefix default:"<<output_prefix<<endl;
 	cout<<"\t-h	        	output help infomation"<<endl;
 	cout<<endl<<"Example:"<<endl;
-	cout<<"\t1. ./simulate_diploid_genome -i ref_sequence.fa -s 0.001 -d 0.0001 -v 0.000001 -o ref_sequence >simulate_snp_indel.out 2>simulate_snp_indel.err"<<endl;
+	cout<<"\t1. ./pirs diploid -i ref_sequence.fa -s 0.001 -d 0.0001 -v 0.000001 -o ref_sequence >SimDiploid.out 2>SimDiploid.err"<<endl;
 	exit(-1);
 }
 
-void Getopt(int argc,char *argv[]){
+void SimDiploid_Getopt(int argc,char *argv[]){
 	int c;
 	while ((c=getopt(argc,argv,"i:s:d:o:a:v:c:h"))!=-1)
 	{
@@ -72,13 +65,13 @@ void Getopt(int argc,char *argv[]){
 			case 'v': big_SV_rate=strtod(optarg,NULL);break;
 			case 'c': output_type=atoi(optarg);break;
 			case 'o': output_prefix=optarg;break;
-			case 'h': Usage();break;
-			default: Usage();
+			case 'h': SimDiploid_Usage();break;
+			default: SimDiploid_Usage();
 		}
 	}
 }
 
-int main(int argc, char *argv[])
+int simulate_diploid_genome(int argc, char *argv[])
 {
 	time_t time_start, time_end;
 	time_start = time(NULL);
@@ -86,9 +79,11 @@ int main(int argc, char *argv[])
 	
 	if (argc==1)
 	{
-		Usage();
+		SimDiploid_Usage();
 	}
-	Getopt(argc,argv);
+	SimDiploid_Getopt(argc,argv);
+	
+	argv--;
 	
 	if(hetersnp_rate < 0 || hetersnp_rate > 1){cerr<<"Error: hetersnp_rate should be set in 0~1 "<<endl;exit(-1);}
 	if(snp_transition_by_transvertion_rate < 0){cerr<<"Error: the rate of transition/transvertion should be set greater than 0 "<<endl;exit(-1);}
@@ -217,7 +212,7 @@ void Get_raw_genome(igzstream &inf, ofstream &snp_file, ofstream &indel_file, of
 void simulate_snp_indel_seq(string id_line,string id,string &sequence, ofstream &snp_file,ofstream &indel_file, ofstream &invertion_file)
 {
 	//convert lower case to upper case 
-	to_upper(sequence);
+	boost::to_upper(sequence);
 
 	if (hetersnp_rate>0 || heterindel_rate>0 || big_SV_rate>0) //heterozygous SNP and heterozygous indel exists in diploid
 	{

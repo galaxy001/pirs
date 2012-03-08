@@ -26,7 +26,7 @@ char alphabet3[128] =
 
 //check and open the outfile file
 void set_and_check_file(PARAMETER InputParameter, igzstream &infile, igzstream &infile2, ofstream &outfile1,	ofstream &outfile2, 
-	ogzstream &gz_outfile1, ogzstream &gz_outfile2, ofstream &insert_log, ofstream &error_log)
+	ogzstream &gz_outfile1, ogzstream &gz_outfile2, ofstream &insert_log, ofstream &error_log, ogzstream &infor_outfile)
 {
 	//set and open output file
 	infile.open(InputParameter.Input_ref1.c_str());
@@ -46,7 +46,7 @@ void set_and_check_file(PARAMETER InputParameter, igzstream &infile, igzstream &
   	}
 	}
 	
-	string output_file1, output_file2, output_insert_distr, output_error_distr;
+	string output_file1, output_file2, output_insert_distr, output_error_distr, output_infor;
 	string infix_name = "_"+boost::lexical_cast <std::string>(InputParameter.Read_length)+"_"+boost::lexical_cast <std::string>(InputParameter.Insertsize_mean);
 	//read file1
 	if(InputParameter.Is_simulate_quality){
@@ -68,6 +68,8 @@ void set_and_check_file(PARAMETER InputParameter, igzstream &infile, igzstream &
 	output_insert_distr = InputParameter.Output_prefix+infix_name+".insertsize.distr";
 	//error rate distribution file
 	output_error_distr = InputParameter.Output_prefix+infix_name+".error_rate.distr";
+	//read information file
+	output_infor = InputParameter.Output_prefix+infix_name+".read.info.gz";
 	//open file
   if(!InputParameter.Output_type){
   	outfile1.open(output_file1.c_str());
@@ -79,6 +81,7 @@ void set_and_check_file(PARAMETER InputParameter, igzstream &infile, igzstream &
 
   insert_log.open(output_insert_distr.c_str());
   error_log.open(output_error_distr.c_str());
+  infor_outfile.open(output_infor.c_str());
 	
 	//check file
 	if(!InputParameter.Output_type)
@@ -96,8 +99,9 @@ void set_and_check_file(PARAMETER InputParameter, igzstream &infile, igzstream &
 		}
 	}
 
-	if(!insert_log){cerr<<"Error:unalbe to open output insertsize distribution file."<<endl;exit(1);}
-	if(!error_log){cerr<<"Error:unalbe to open output error rate distribution file."<<endl;exit(1);}
+	if(!insert_log){cerr<<"Error:unalbe to create insertsize distribution file."<<endl;exit(1);}
+	if(!error_log){cerr<<"Error:unalbe to create error rate distribution file."<<endl;exit(1);}
+	if(!infor_outfile){cerr<<"Error:unalbe to create reads information file."<<endl;exit(1);}
 }
 
 //get the attribute of Base-calling  profile
@@ -113,7 +117,7 @@ void preview_BaseCalling_profile (PARAMETER InputParameter, string exe_path, int
   	}
   	else{
   		string directory_path = exe_path.substr(0,index);
-  		matrix_file = directory_path + "/Profiles/Base-calling_profile/hum20110701.bwanosnp.count.matrix";
+  		matrix_file = directory_path + BASE_CALLING_PROFILE;
   	}
 	}else{
 		matrix_file = InputParameter.BaseCalling_profile;
@@ -194,7 +198,7 @@ void preview_BaseCalling_profile (PARAMETER InputParameter, string exe_path, int
 }
 
 //read in quality distribution file and get the quality distribution table.
-void load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num, int seq_Base_num, 
+string load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num, int seq_Base_num, 
 	int quality_num, double statistical_average_error_rate, double*** simulation_matrix)
 {
 	string matrix_file;
@@ -205,7 +209,7 @@ void load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int sta
   	}
   	else{
   		string directory_path = exe_path.substr(0,index);
-  		matrix_file = directory_path + "/Profiles/Base-calling_profile/hum20110701.bwanosnp.count.matrix";
+  		matrix_file = directory_path + BASE_CALLING_PROFILE;
   	}
 	}else{
 		matrix_file = InputParameter.BaseCalling_profile;
@@ -371,10 +375,11 @@ void load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int sta
 	}
   
   cerr <<"Have finished constructing Base-calling simulation matrix1"<<endl;
+  return matrix_file;
 }
 
 //read in quality distribution file and get the quality distribution table.
-void load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num, int seq_Base_num, 
+string load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num, int seq_Base_num, 
 	int quality_num, double statistical_average_error_rate, double**** simulation_matrix1, double*** First_cycle_matrix)
 {
 	string matrix_file;
@@ -385,7 +390,7 @@ void load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int sta
   	}
   	else{
   		string directory_path = exe_path.substr(0,index);
-  		matrix_file = directory_path + "/Profiles/Base-calling_profile/hum20110701.bwanosnp.count.matrix";
+  		matrix_file = directory_path + BASE_CALLING_PROFILE;
   	}
 	}else{
 		matrix_file = InputParameter.BaseCalling_profile;
@@ -555,10 +560,12 @@ void load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int sta
 	}
   
   cerr <<"Have finished constructing Base-calling simulation matrix1"<<endl;
+  
+  return matrix_file;
 }
 
 //read in quality distribution file and get the quality distribution table.
-void load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num, int ref_Base_num, int simulate_Cycle_num, int seq_Base_num, 
+string load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num, int ref_Base_num, int simulate_Cycle_num, int seq_Base_num, 
 	int quality_num, double statistical_average_error_rate, double*** simulation_matrix2)
 {
 	string matrix_file;
@@ -569,7 +576,7 @@ void load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int sta
   	}
   	else{
   		string directory_path = exe_path.substr(0,index);
-  		matrix_file = directory_path + "/Profiles/Base-calling_profile/hum20110701.bwanosnp.count.matrix";
+  		matrix_file = directory_path + BASE_CALLING_PROFILE;
   	}
 	}else{
 		matrix_file = InputParameter.BaseCalling_profile;
@@ -664,9 +671,11 @@ void load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int sta
   
   
   cerr <<"Have finished constructing Base-calling simulation matrix2"<<endl;
+  
+  return matrix_file;
 }
 
-void load_GC_depth_profile (PARAMETER InputParameter, string exe_path, double* GC_bias_abundance)
+string load_GC_depth_profile (PARAMETER InputParameter, string exe_path, double* GC_bias_abundance)
 {
 	string depth_file;
 	
@@ -680,16 +689,16 @@ void load_GC_depth_profile (PARAMETER InputParameter, string exe_path, double* G
   		string GC_depth_profile_name;
 			int window_size = InputParameter.Read_length * 2;
     	if(window_size < 125){
-    		GC_depth_profile_name = "gcdep100.txt";
+    		GC_depth_profile_name = GC_DEPTH100_PROFILE;
     	}else{
     		if(window_size < 175){
-    			GC_depth_profile_name = "gcdep150.txt";
+    			GC_depth_profile_name = GC_DEPTH150_PROFILE;
     		}else{
-    			GC_depth_profile_name = "gcdep200.txt";
+    			GC_depth_profile_name = GC_DEPTH200_PROFILE;
     		}
     	}
   		string directory_path = exe_path.substr(0,index);
-  		depth_file = directory_path + "/Profiles/GC-depth_profile/"+GC_depth_profile_name;
+  		depth_file = directory_path + GC_DEPTH_PROFILE_PATH+GC_depth_profile_name;
   	}
 	}else{
 		depth_file = InputParameter.GC_depth_profile;
@@ -722,7 +731,7 @@ void load_GC_depth_profile (PARAMETER InputParameter, string exe_path, double* G
 			//............
 			boost::split(lineVec,lineStr, boost::is_any_of(" \t\n"), boost::token_compress_on);
 			GC_ratio_vec.push_back(boost::lexical_cast<double>(lineVec[0]));  //GC%
-			depth_vec.push_back(boost::lexical_cast<double>(lineVec[3]));   //SmoothedMean
+			depth_vec.push_back(boost::lexical_cast<double>(lineVec[4]));   //SmoothedMean
 		}
 	}
 	
@@ -756,6 +765,8 @@ void load_GC_depth_profile (PARAMETER InputParameter, string exe_path, double* G
   
   
   cerr <<"Have finished constructing GC bias simulation matrix"<<endl;
+  
+  return depth_file;
 }
 
 

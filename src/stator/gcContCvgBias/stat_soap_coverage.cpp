@@ -6,7 +6,7 @@
 #include <math.h>
 #include <vector>
 #include <boost/progress.hpp>
-#include <boost/progress.hpp>
+#include <boost/lexical_cast.hpp>
 #include "gzstream.h"
 #include "self_util.h"
 #include "stat_soap_coverage.h"
@@ -191,6 +191,137 @@ void stat_soap_coverage::DealSoapCoverage()
     cout << "deal soapcoverage time: ";
 }
 
+/*
+void stat_soap_coverage::DealSoapCoverage()
+{
+  
+  boost::progress_timer timer;
+  boost::progress_display display(vec_soap_file_name.size());
+
+  for(vector<string>::iterator it = vec_soap_file_name.begin(); it != vec_soap_file_name.end(); ++it)
+  {
+    igzstream in((*it).c_str());
+    string line;
+    string keyname;
+    string strTemp = "";
+    vector<unsigned int> chr_soap_coverage;
+    uint64_t countLine = 0;
+    int in_temp;
+
+    while(getline(in, line))
+    {
+      TrimLeft(line);
+      TrimRight(line);
+      
+      if(line[0] == '>')
+      {
+    		if(strTemp.size() != 0 && map_reference_base.count(keyname) != 0)
+    		{
+  				vector<string> tem_vec;
+					tem_vec = splitString(strTemp, " \t");
+					uint64_t tem_size = tem_vec.size();
+					if(map_reference_base[keyname].size() != tem_size)
+					{
+						cerr <<"error: In chromosome "<<keyname << ", the sequence length("<<map_reference_base[keyname].size()<<") do not equal to soap-coverage number("<<tem_size<<"), please check! " << __FILE__ << ", " << __LINE__ <<endl;
+						
+					}else{
+						for(uint64_t i = 0; i < tem_size; i++)
+						{
+							unsigned int in_temp = boost::lexical_cast<unsigned int>(tem_vec[i]);
+							if(in_temp == 65535)
+              {
+                  in_temp = 0;
+              }
+              chr_soap_coverage.push_back(in_temp);
+						}
+						if(map_soap_coverage.count(keyname) == 0)
+            {
+                map_soap_coverage[keyname] = chr_soap_coverage;
+            }
+            else
+            {
+                for(int i=0; i<map_soap_coverage[keyname].size(); ++i)
+                {
+                    uint64_t temp = map_soap_coverage[keyname][i] + chr_soap_coverage[i];
+                    if(temp > 65534)
+                    {
+                        map_soap_coverage[keyname][i] = 65534;
+                    }
+                    else
+                    {
+                        map_soap_coverage[keyname][i] += chr_soap_coverage[i];
+                    }
+                }
+            }
+					}
+    		}
+        int index;
+        if(((index = line.find(" ")) != string::npos) || ((index = line. find("\t")) != string::npos) || ((index = line.find("\n")) != string::npos))
+        {
+            keyname = line.substr(1, index-1);    
+        }
+        else
+        {
+            keyname = line.substr(1);
+        }
+				chr_soap_coverage.clear();
+				strTemp = "";
+
+      }else{
+      	strTemp += line;
+      	strTemp += " ";
+      }
+    }
+    
+    //process the last chromosome
+    if(strTemp.size() != 0 && map_reference_base.count(keyname) != 0)
+    {
+			vector<string> tem_vec;
+			tem_vec = splitString(strTemp, " \t");
+			uint64_t tem_size = tem_vec.size();
+			if(map_reference_base[keyname].size() != tem_size)
+			{
+				cerr <<"error: In chromosome "<<keyname << ", the sequence length do not equal to soap-coverage number, please check!" << __FILE__ << ", " << __LINE__ <<endl;
+				
+			}else{
+				for(uint64_t i = 0; i < tem_size; i++)
+				{
+					unsigned int in_temp = boost::lexical_cast<unsigned int>(tem_vec[i]);
+					if(in_temp == 65535)
+          {
+              in_temp = 0;
+          }
+          chr_soap_coverage.push_back(in_temp);
+				}
+				if(map_soap_coverage.count(keyname) == 0)
+        {
+            map_soap_coverage[keyname] = chr_soap_coverage;
+        }
+        else
+        {
+            for(int i=0; i<map_soap_coverage[keyname].size(); ++i)
+            {
+                uint64_t temp = map_soap_coverage[keyname][i] + chr_soap_coverage[i];
+                if(temp > 65534)
+                {
+                    map_soap_coverage[keyname][i] = 65534;
+                }
+                else
+                {
+                    map_soap_coverage[keyname][i] += chr_soap_coverage[i];
+                }
+            }
+        }
+			}
+    }
+    
+    in.close();
+    ++display;
+  }
+  
+  cout << "deal soapcoverage time: ";
+}
+*/
 void stat_soap_coverage::StatGC()
 {
     boost::progress_timer timer;
@@ -624,7 +755,7 @@ void stat_soap_coverage::DealStat()
         		tem = temp_gc_output[gc_keyname[i]][1];
         	}else{
           	double a00 = 0, a01 = 0, a11 = 0, d0 = 0, d1 = 0;
-          	int span = 3;
+          	int span = 4;
           	for(int j=i-span; j<=i+span; ++j)
           	{
           		if( j<0 || j>=gc_keyname.size() || fabs(gc_keyname[j]-gc_keyname[i])>span){continue;}

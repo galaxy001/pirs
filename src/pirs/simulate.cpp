@@ -6,6 +6,9 @@
 #include <map>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
+#include <gsl/gsl_cdf.h>
 #include "simulate.h"
 
 //from ASCII of A(N) C G T to 0 1 2 3, auto dealing with upper or lower case.
@@ -447,3 +450,94 @@ int simulate_GC_bias(string insert_str, double *GC_bias_abundance){
 	return is_ignore;
 }
 
+//Set indel rate
+void set_rate(int read_len, double total_rate, int max_num, vector <double>& rate)
+{
+  rate.resize(100);
+  for(int i=1; i<=100; i++){
+//    rate[i-1]= gsl_cdf_binomial_Q(i, total_rate, read_len);  //ART bug?
+		rate[i-1]= gsl_ran_binomial_pdf(i, total_rate, read_len);
+//    cerr<<"rate: "<<rate[i-1]<<endl;
+    
+  }
+}
+
+//simulate reads indel 
+int simulate_reads_indel(vector<double> del_rate, vector<double> ins_rate, map<int,char,less<int> > &indel, int read_len)
+{
+    int ins_len=0, del_len=0;
+    //deletion
+    for(int i=(int)del_rate.size()-1; i>=0; i--){
+    	double num = double(rand())/double(RAND_MAX);
+        if(del_rate[i]>=num){
+            del_len=i+1;
+            for(int j=i; j>=0;){
+            	double num1 = double(rand())/double(RAND_MAX);
+                int pos=(int) floor((read_len-1)*num1); //invalid deletion positions: 0 or read_len-1
+                if(pos==0) continue;
+                if(indel.count(pos)==0){
+                    indel[pos]='-';
+                    j--;
+                }
+            }
+            break;
+        }
+    }
+
+    for(int i=ins_rate.size()-1; i>=0; i--){
+    	double num = double(rand())/double(RAND_MAX);
+        if(ins_rate[i]>=num){
+            ins_len=i+1;
+            for(int j=i; j>=0;){
+            	double num1 = double(rand())/double(RAND_MAX);
+                int pos=(int) floor(num1*read_len);
+                if(indel.count(pos)==0){
+                	double num2 = double(rand())/double(RAND_MAX);
+                    short base=(short)ceil(num2*4);
+                    switch(base){
+                                case 1:
+                                    indel[pos]='A';   break;
+                                case 2:
+                                    indel[pos]='C';   break;
+                                case 3:
+                                    indel[pos]='G';   break;
+                                case 4:
+                                    indel[pos]='T';  
+                    }
+                    j--;
+                }
+            }
+            break;
+        }
+    }
+    return (ins_len-del_len);
+}
+
+//Get indel read
+string ref2read(string seq_ref, map<int,char,less<int> > indel)
+{
+	string read;
+    if(indel.size()==0){
+        read=seq_ref;
+        return read;
+    }
+    read.clear();
+    int k=0;
+    for(size_t i=0; i<seq_ref.size();){
+        //cout<<i<<"\t"<<k<<endl;
+        if(indel.count(k)==0){
+            read.push_back(seq_ref[i]); i++; k++; 
+        }
+        else if(indel[k]=='-'){
+            i++;k++;
+        }
+        else{
+            read.push_back(indel[k]); k++;
+        }
+    }
+    while(indel.count(k)>0){
+        read.push_back(indel[k]);
+        k++;
+    }
+    return read;
+}

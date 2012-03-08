@@ -15,7 +15,7 @@ Contents
   Illumina sequencing platform, such as insert size distribution, sequencing error, quality score 
   and GC content-coverage bias. 
     As all know, the insert size follows a normal distribution, so users should set the mean value 
-  and standard deviation. We usually set the standard deviation to be 1/20 of the mean value. We 
+  and standard deviation. We usually set the standard deviation as 1/20 of the mean value. We 
   simulate the normal distribution by Box-Muller method. 
     The program simulates sequencing error, quality score and GC content-coverage bias according 
   to the empirical distribution profile. We provide some default profiles counted from lots of real 
@@ -89,10 +89,12 @@ Contents
       -x <double> sequencing coverage depth (default=5)
       -m <int>    average insert size (default=500)
       -v <int>    the standard deviation of insert size (default=5% of average insert size)
+      -a <string> reads indel, set four rate of: read1 insertion, read1 deletion, read2 insertion, read2 deletion,
+                  separate the rate with a comma, such as:0.00009,0.00011,0.00015,0.00023 (default: 0,0,0,0)
       -g <int>    simulate GC content-coverage bias, 0: no, 1: yes (default=1)
       -q <int>    simulate quality value, 0: no, 1: yes (default=1)
-      -M <int>    simulate quality value by Quality-transition mode, 0:no, 1:yes, default:1
-      -Q <int>    ASCII shift of quality value, generally 64 or 33 for Illumina data, default:64
+      -M <int>    simulate quality value by Quality-transition mode, 0:no, 1:yes, (default:1)
+      -Q <int>    ASCII shift of quality value, generally 64 or 33 for Illumina data, (default:64)
       -f <int>    cyclize insert fragment (influence on PE reads direction) 0:read1-forward, read2-reverse, 
                   1: contrary to parameter 0 (default=0)
       -c <int>    output file type, 0: text, 1: gz compressed (default=1)
@@ -112,12 +114,13 @@ Contents
       e) simulate_seq.o, simulate_seq.e: records of the program running information.
   4.2 Simulation result of Illumina sequencing data for haploid genome.
     Example command line:
-    pirs simualte -i Human_ref.fa -m 170 -l 90 -x 5 -v 10 -o Hu-man>simulate_170.o 2>simulate_170.e
+    pirs simualte -i Human_ref.fa -m 170 -l 90 -x 5 -v 10 -o Human >simulate_170.o 2>simulate_170.e
     Output files:
       a) Human_90_170_1.fq.gz, Human_90_170_2.fq.gz: the pair-end read files.
       b) Human_90_170.error_rate.distr: the error distribution file.
       c) Human_90_170.insertsize.distr: the insert size distribution file.
-      d) simulate_170.o, simulate_170.e: records of the program running information.
+      d) Human_90_170.read.info.gz: record the information of every reads.
+      e) simulate_170.o, simulate_170.e: record the running information of program.
   4.3 Simulation result of Illumina sequencing data for diploid genome.
     Example command line:
     pirs simualte -i Human_ref.fa -I Human.snp.indel.invertion.fa.gz -m 800 -l 70 -x 5 -v 10 
@@ -126,34 +129,43 @@ Contents
       a) Human_70_800_1.fq.gz, Human_70_800_2.fq.gz: the pair-end read files.
       b) Human_70_800.error_rate.distr: the error distribution file.
       c) Human_70_800.insertsize.distr: the insert size distribution file.
-      d) simulate_800.e, simulate_800.o: records of the program running information.
+      d) Human_70_800.read.info.gz: record the information of every reads.
+      e) simulate_800.e, simulate_800.o: records of the program running information.
 
 5 Output file format
 ====================
   a) *.fq/*.fq.gz
-    For example: the output file name: *_70_800_1.fq.gz, it mean 70bp reads, the average insert size length is 800bp.
+    For example: the output file name: *_70_800_1.fq.gz, it mean 70bp reads, the average length of insert size is 800bp.
     In read file1:
 
-      @read_800_21/1 seq 1 856549 70 813
+      @read_800_21/1
       ACGGAAAAGTTACGCTATCGCATGCGTGTAAGAACACTGCTCCTACGCCCATTTTATCGATGGCGCCCAG
       +
       egcggdggfgfgggggfeggggYbcgegfgggbggg^e]egfegggfbSeggdggegg`^eJgggcbEeb
-      @read_800_22/1 seq 2 129025 70 786 32,C;70,A;
+      @read_800_22/1
       CACGGGGGGACTTTATTTAATGAGCGGCTGTAACTTGGTCCGTCGTTTGAGAGGGGACACCTCATATGAT
       +
       gggggegcgeggggcgfcgc_gf_ggfefcgVgegcfcdgf`geggdd[ge`ggafeggggdgdgee^gg
 
     note: 
     In Row-1, "800" represent for the mean insert size; "21" represent for the order of read in file; 
-    The next "1" represent for read file1; "seq" represent for id of chromosome; The next "1" represent for 
-    this read come from the reference sequence which is input by -i, for simulated data of haploid genome, 
-    it will be always "1", for simulated data of diploid genome, "1" represent for this read generates from 
-    the reference sequence which is input by -i, "2" represent for this read generates from the reference 
-    sequence which is input by -I; "856549" represent for the start position(1-based) in the chromosome; 
-    "70" represent for the length of read; "813" represent for the insert size.
-    In Row-5, "32,C;70,A;" represent for two sequencing errors in this read, "32" and "74" represent for 
-    the error positions(1-based); "C" and "A" represent for the right Bases.
-  b) *_snp.lst
+    The next "1" represent for read file1.
+    
+  b) *.read.info.gz
+    
+    Column 1: reads ID.
+    Column 2: real insert size.
+    Column 3: "1" represent for this read generates from sequence which is input by option -i, "2" represent 
+              for this read generates from the reference sequence which is input by -I; for simulated data of 
+              haploid genome, it will be always "1".
+    Column 4: chromosome sequence ID.
+    Column 5: "+" forward direction; "-" reverse direction.
+    Column 6: position(1-based) in chromosome.
+    Column 7: read-position(1-based) of substitution error and raw base(->)error base.
+    Column 8: read-position(1-based) of insertion error and the base of insertion.
+    Column 9: read-position(1-based) of deletion error and the base of deletion
+
+  c) *_snp.lst
     For example:
     
       I	3	G	A 
@@ -161,25 +173,25 @@ Contents
       I	104775	C	T
       .....
     Column 1: chromosome sequence ID.
-    Column 2: SNP position(1-based).
-    Column 3: Base on raw chromosome sequence.
-    Column 4: SNP-Base.
+    Column 2: position(1-based) of SNP in raw chromosome.
+    Column 3: base of raw chromosome sequence.
+    Column 4: the base of SNP.
 
       I 3 G A
       Ref: a t G c a // 3 is the position of G base in the chromosome base.
          : a t A c a // G base is a A in another diploid sequence. 
 
-  c) *_indel.lst
+  d) *_indel.lst
     For example:
       I  - 3 1 C
       IV + 5 2 AC
       .....
     Column 1: chromosomesequence ID.
     Column 2: "-" Deletion; "+" Insertion.
-    Column 3: InDel position (1-based) of raw chromosome sequence. Note that this position represent 
+    Column 3: position(1-based) of InDel in raw chromosome sequence. Note that this position represent 
               for the prev-base of InDel region.
-    Column 4: InDel Base number.
-    Column 5: InDel Base.
+    Column 4: the base number of InDel.
+    Column 5: the base of InDel.
 
       I - 3 1 C
       Ref: a t G c a // 3 is the position of G base in the chromosome base.
@@ -188,30 +200,31 @@ Contents
       Ref: t t g c A - - g t t// 5 is the position of A base in the chromosome base.
          : t t g c A A C g t t// following the A base is a insertion of "AC" bases.
 
-  d) *_invertion.lst
+  e) *_invertion.lst
     For example:
       I	50191	100 
       I	948984	200
     Column 1: chromosome sequence ID.
-    Column 2: invertion position (1-based) of raw chromosome sequence. Note that this position represent 
+    Column 2: position(1-based) of invertion in raw chromosome sequence. Note that this position represent 
               for the prev-base of invertion region.
-    Column 3: invertion length.
+    Column 3: length of invertion.
 
 6 Note
 ======
-  a) When simulate small InDel: insertion and deletion share 1/2 of the total rate respectively, 1~6bp bases 
-  as the InDel number ,and the rate distribution of each type as below: 1bp-64.82%, 2bp-17.17%, 3bp-7.20%, 
-  4bp-7.29%, 5bp-2.18%, 6bp-1.34%, which is the empirical distribution from panda re-sequencing data, we can 
-  set the total small InDel rate with option -d. When simulate SV (structural variation): large insertion, 
-  deletion and invertion, each of them share 1/3 of total rate, here we use this rate distribution for simplicity: 
-  100bp-70%, 200bp-20%, 500bp-7%, 1000bp-2%, 2000bp-1%, we can set the total SV rate with option -v.
-  b) Program do not simulate reads contain "N" char. If the input reference contains "N" char, reads which 
-  generated in this region will be discarded.
-  c) The allowed max length of read bases on the cycle number of Base-calling profile. User should set read length 
+  a) When simulating InDel in genome: they go halves on the total rate respectively, 1~6bp bases as the number 
+  of InDel, and the rate distribution of each type as below: 1bp-64.82%, 2bp-17.17%, 3bp-7.20%, 4bp-7.29%, 5bp-2.18%, 
+  6bp-1.34%, which is the empirical distribution from panda re-sequencing data, we can set the total InDel rate with 
+  option -d. When simulating SV (structural variation): insertion, deletion and invertion, each of them share 1/3 of 
+  total rate, here we use this rate distribution for simplicity: 100bp-70%, 200bp-20%, 500bp-7%, 1000bp-2%, 2000bp-1%, 
+  we can set the total SV rate with option -v.
+  b) Program do not simulate reads contain "N" char. If the input reference contains "N" char, reads which generated 
+  in this region will be discarded.
+  c) The allowed max length of read depends on the cycle number of Base-calling profile. User should set read length 
   less than half of cycle number.
-  d) Reference sequences are parsed one chromosome at a time, and so be the output.Indiploid mode, each reference 
-  file is sampled with half depth.
-  e) Random-seed in this program is set with system time, so when you need to simulate data in batches, each task 
-  has to run in different seconds.
+  d) The program parses one chromosome at a time, so dose the output. In diploid mode, each reference file  is sampled 
+  with half depth.
+  e) Random-seed in this program is set with system time, so when you need to simulate data in batches,it needs a 
+  interval for each task(such as one second).
   
   For update & support, please refer to http://code.google.com/p/pirs/ .
+ 
