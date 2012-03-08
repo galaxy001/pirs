@@ -1,13 +1,16 @@
 #!/bin/env perl
 use strict;
 use warnings;
+use Time::HiRes qw ( gettimeofday tv_interval );
 
-my $SAMTOOLSBIN="/ifs1/ST_ASMB/USER/yuanjy/huxuesong/tmp/group/rev/test/samtools";
+my $SAMTOOLSBIN="samtools";
+$SAMTOOLSBIN="/ifs1/ST_ASMB/USER/yuanjy/huxuesong/tmp/group/rev/test/samtools";
 my $MAXREADStoCHECK=10000;
 
-die "Usage: $0 <single_bam_sam_file> <output>\n" if @ARGV<2;
+die "Usage: $0 <single_sam_bam_file> <output> [max_running_minutes]\n" if @ARGV<2;
 my $name=shift;
 my $out=shift;
+my $timelimit=shift;
 my ($READLEN,$lines)=(0,0);
 if ($name =~ /\.bam$/) {
 	open IN,'-|',"$SAMTOOLSBIN view -f 3 -F 1536 $name" or die "Error opening $name : $!\n";
@@ -42,6 +45,7 @@ if ($name =~ /\.bam$/) {
 	die "[x]Unsupport file type.";
 }
 
+my $start_time = [gettimeofday];
 my (%Cnt,%DistIns,%DistDel);
 my ($Read12,$PosShift,$cigar,$DelShift);
 while (<IN>) {
@@ -81,7 +85,7 @@ while (<IN>) {
             } elsif ($cigar_part =~ /(\d+)I/){
 				$Cnt{$Read12}{'Ins'} += $1;
 				for my $p ($position .. ($position + $1 -1)) {
-					$DistIns{$Read12}{abs($p+$PosShift)}++;
+					$DistIns{abs($p+$PosShift)}{$Read12}++;
 warn "$position -> ",$position+$PosShift,"\t$1\t$cigar\t$cigar_part\n$_\n" if abs($position+$PosShift)<=1 or abs($position+$PosShift)>=$READLEN;
 				}
 #warn "$position -> ",$position+$PosShift,"\t$cigar\t$cigar_part\n$_\n" if abs($position+$PosShift)<1 or abs($position+$PosShift)>$READLEN;
@@ -89,8 +93,8 @@ warn "$position -> ",$position+$PosShift,"\t$1\t$cigar\t$cigar_part\n$_\n" if ab
             } elsif ($cigar_part =~ /(\d+)D/){
 				$Cnt{$Read12}{'Del'} += $1;
 				my $p=abs($position+$DelShift+$PosShift);
-				$DistDel{$Read12}{$p}{$1}++;	# 99M1D1M: D@99, not 100.
-				$DistDel{$Read12}{-1}++;
+				$DistDel{$p}{$1}{$Read12}++;	# 99M1D1M: D@99, not 100.
+				#$DistDel{-1}{$Read12}++;
 warn "$position -> ",$p,"\t$1\t$cigar\t$cigar_part\n$_\n" if $p<1 or $p>=$READLEN;
                #$position += $1;
             } elsif ($cigar_part =~ /(\d+)S/){
@@ -105,35 +109,42 @@ warn "$position -> ",$p,"\t$1\t$cigar\t$cigar_part\n$_\n" if $p<1 or $p>=$READLE
          }
       }
 	}
-	++$lines;
-	last if $lines > 100*$MAXREADStoCHECK;
+	#++$lines;
+	#last if $lines > 100*$MAXREADStoCHECK;
+	if (defined $timelimit) {
+		last if tv_interval( $start_time, [gettimeofday] ) > $timelimit * 60;
+	}
 }
 close IN;
 
+sub getValue($) {
+	if (defined $_[0]) {
+		return $_[0];
+	} else {
+		return '0';
+	}
+}
 open O,'>',$out or die "Error opening ${out} : $!\n";
-print O "File=$name\nRead_Length=$READLEN\n\nRead\tType\tCount\tRatio\n";
-for my $Read12 (sort keys %Cnt) {
+print O "[Info]\nFile=$name\nRead_Length=$READLEN\n<<END\n\n[Overall]\nRead\tType\tCount\tRatio\n";
+for my $Read12 (sort {$b cmp $a} keys %Cnt) {
 	for (sort keys %{$Cnt{$Read12}}) {
 		#next if $_ eq 'All';
 		print O "$Read12\t$_\t$Cnt{$Read12}{$_}\t",$Cnt{$Read12}{$_}/$Cnt{$Read12}{'All'},"\n";
 	}
 }
 
-print O "\nRead\tCycle\tDel\tCount\tRatio\n";
-for my $Read12 (sort keys %DistDel) {
-	for my $cyc (sort {$a<=>$b} keys %{$DistDel{$Read12}}) {
-		next if $cyc == -1;
-		for my $ins (sort {$a<=>$b} keys %{$DistDel{$Read12}{$cyc}}) {
-			print O "$Read12\t$cyc\t$ins\t$DistDel{$Read12}{$cyc}{$ins}\t",$DistDel{$Read12}{$cyc}{$ins}/$DistDel{$Read12}{-1},"\n";
-		}
-	}
+print O "<<END\n\n[Insertion]\nCycle\tInsertion1\tInsertion2\n";
+for my $cyc (sort {$a<=>$b} keys %DistIns) {
+	print O join("\t",$cyc,getValue($DistIns{$cyc}{1}),getValue($DistIns{$cyc}{2})),"\n";
 }
 
-print O "\nRead\tCycle\tIns\tRatio\n";
-for my $Read12 (sort keys %DistIns) {
-	for my $cyc (sort {$a<=>$b} keys %{$DistIns{$Read12}}) {
-		print O "$Read12\t$cyc\t$DistIns{$Read12}{$cyc}\t",$DistIns{$Read12}{$cyc}/$Cnt{$Read12}{'Ins'},"\n";
+print O "<<END\n\n[Deletion]\nCycle\tDeletion\tCount1\tCount2\n";
+for my $cyc (sort {$a<=>$b} keys %DistDel) {
+	#next if $cyc == -1;
+	for my $ins (sort {$a<=>$b} keys %{$DistDel{$cyc}}) {
+		print O join("\t",$cyc,$ins,getValue($DistDel{$cyc}{$ins}{1}),getValue($DistDel{$cyc}{$ins}{2})),"\n";
 	}
 }
+print O "<<END\n";
 
 close O;
