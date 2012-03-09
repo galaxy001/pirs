@@ -187,21 +187,23 @@ print O "<<END\n\n[InDel]\nCycle\t",join("\t",@Ins),"\n";
 open D,'>',$out.'.InDel.dat' or die "Error opening ${out}.InDel.dat : $!\n";
 print D join("\t",'#Cycle',@Ins),"\n";
 for my $cyc (1 .. $READLEN) {
-	my @Counts;
+	my (@Counts,@Ratios);
 	for my $ins (@Ins) {
 		push @Counts,getValue($DistInDelMatrix{$ins}{$cyc}{1});
+		push @Ratios,getRatio($DistInDelMatrix{$ins}{$cyc}{1},$Cnt{1}{'All'});
 	}
-	print D join("\t",$cyc,@Counts),"\n";
 	print O join("\t",$cyc,@Counts),"\n";
+	print D join("\t",$cyc,@Ratios),"\n";
 }
 
 for my $cyc (1 .. $READLEN) {
-	my @Counts;
+	my (@Counts,@Ratios);
 	for my $ins (@Ins) {
 		push @Counts,getValue($DistInDelMatrix{$ins}{$cyc}{2});
+		push @Ratios,getRatio($DistInDelMatrix{$ins}{$cyc}{2},$Cnt{1}{'All'});
 	}
-	print D join("\t",$cyc+$READLEN,@Counts),"\n";
 	print O join("\t",$cyc+$READLEN,@Counts),"\n";
+	print D join("\t",$cyc+$READLEN,@Ratios),"\n";
 }
 
 close D;
