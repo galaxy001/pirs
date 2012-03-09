@@ -6,9 +6,9 @@ use Time::HiRes qw ( gettimeofday tv_interval );
 my $SAMTOOLSBIN="samtools";
 $SAMTOOLSBIN="/ifs1/ST_ASMB/USER/yuanjy/huxuesong/tmp/group/rev/test/samtools";
 my $MAXREADStoCHECK=10000;
-my $MAXINDELEN=3;
+my $MAXINDELEN=6;
 
-die "Usage: $0 <single_sam_bam_file> <output> [max_running_minutes]\n" if @ARGV<2;
+die "Usage: $0 <single_sam_bam_file> <output_prefix> [max_running_minutes]\n" if @ARGV<2;
 my $name=shift;
 my $out=shift;
 my $timelimit=shift;
@@ -47,7 +47,7 @@ if ($name =~ /\.bam$/) {
 }
 
 my $start_time = [gettimeofday];
-my (%Cnt,%InDel,%LenInDel,%DistDel,%DistAll,%RL);
+my (%Cnt,%InDel,%LenInDel,%DistInDelMatrix,%DistAll,%RL);
 my ($Read12,$PosShift,$cigar,$DelShift);
 while (<IN>) {
 	next if /^@\w\w\t\w\w:/;
@@ -96,7 +96,7 @@ while (<IN>) {
 					$flag=1;
 					$Cnt{$Read12}{'Ins'} += $1;
 					my $p=abs($position+$DelShift+$PosShift);
-					$DistDel{$1}{$p}{$Read12}++;
+					$DistInDelMatrix{$1}{$p}{$Read12}++;
 					++$LenInDel{$1}{$Read12};
 					#for my $p ($position .. ($position + $1 -1)) {
 						#$DistIns{abs($p+$PosShift)}{$Read12}++;
@@ -110,9 +110,9 @@ while (<IN>) {
 					$flag=1;
 					$Cnt{$Read12}{'Del'} += $1;
 					my $p=abs($position+$DelShift+$PosShift);
-					$DistDel{-$1}{$p}{$Read12}++;	# 99M1D1M: D@99, not 100.
+					$DistInDelMatrix{-$1}{$p}{$Read12}++;	# 99M1D1M: D@99, not 100.
 					++$LenInDel{-$1}{$Read12};
-					#$DistDel{-1}{$Read12}++;
+					#$DistInDelMatrix{-1}{$Read12}++;
 #warn "$position -> ",$p,"\t$1\t$cigar\t$cigar_part\n$_\n" if $p<1 or $p>=$READLEN;
 				}
                #$position += $1;
@@ -151,7 +151,7 @@ sub getValue($) {
 sub getRatio($$) {
 	if (defined $_[0]) {
 		if (defined $_[1] && $_[1]>0) {
-			return $_[0]/($_[1]*$READLEN);
+			return $_[0]/$_[1];
 		} else {
 			return '-';
 		}
@@ -160,30 +160,50 @@ sub getRatio($$) {
 	}
 }
 
-open O,'>',$out or die "Error opening ${out} : $!\n";
-print O "[Info]\nFile=$name\nRead_Length=$READLEN\n<<END\n\n[Overall]\nRead\tType\tBaseCount\tBaseRatio\tReadCnt\tReadCntRatio\n";
+open O,'>',$out.'.InDel.matrix' or die "Error opening ${out}.InDel.matrix : $!\n";
+print O "[Info]
+File = $name
+Read_Length = $READLEN
+Read_1_Count = $InDel{1}{'All'}
+Read_2_Count = $InDel{2}{'All'}
+MaxInDel_Length = $MAXINDELEN
+<<END
+\n[Overall]
+Read\tType\tBaseCount\tBaseRatio\tReadCnt\tReadCntRatio\n";
 for my $Read12 (sort keys %Cnt) {
 	for (sort {$b cmp $a} keys %{$Cnt{$Read12}}) {
 		#next if $_ eq 'All';
 		print O join("\t",$Read12,$_,$Cnt{$Read12}{$_},$Cnt{$Read12}{$_}/$Cnt{$Read12}{'All'},$InDel{$Read12}{$_},$InDel{$Read12}{$_}/$InDel{$Read12}{'All'}),"\n";
 	}
 }
-=pod
-print O "<<END\n\n[Insertion]\nCycle\tInsertion1\tInsertion2\n";
-for my $cyc (sort {$a<=>$b} keys %DistIns) {
-	print O join("\t",$cyc,getValue($DistIns{$cyc}{1}),getValue($DistIns{$cyc}{2}),getValue($DistIns{$cyc}{1})/getValue($DistAll{$cyc}{1}),getValue($DistIns{$cyc}{2})),"\n";
+print O "\nIndel\tCount1\tCount2\tBaseRatio1\tBaseRatio2\n";
+for (sort {$a<=>$b} keys %LenInDel) {
+	print O join("\t",$_,getValue($LenInDel{$_}{1}),getValue($LenInDel{$_}{2}),getRatio($LenInDel{$_}{1}*abs($_),$Cnt{1}{'All'}),getRatio($LenInDel{$_}{2}*abs($_),$Cnt{2}{'All'})),"\n";
 }
-=cut
-print O "<<END\n\n[InDel]\nCycle\tInDel\tCount1\tCount2\n";
-for my $ins (sort {$a<=>$b} keys %DistDel) {
-	#next if $cyc == -1;
-	for my $cyc (sort {$a<=>$b} keys %{$DistDel{$ins}}) {
-		print O join("\t",$ins,$cyc,getValue($DistDel{$ins}{$cyc}{1}),getValue($DistDel{$ins}{$cyc}{2})),"\n";
+
+my @Ins = sort {$a<=>$b} keys %DistInDelMatrix;
+print O "<<END\n\n[InDel]\nCycle\t",join("\t",@Ins),"\n";
+
+open D,'>',$out.'.InDel.dat' or die "Error opening ${out}.InDel.dat : $!\n";
+print D join("\t",'#Cycle',@Ins),"\n";
+for my $cyc (1 .. $READLEN) {
+	my @Counts;
+	for my $ins (@Ins) {
+		push @Counts,getValue($DistInDelMatrix{$ins}{$cyc}{1});
 	}
+	print D join("\t",$cyc,@Counts),"\n";
+	print O join("\t",$cyc,@Counts),"\n";
 }
+
+for my $cyc (1 .. $READLEN) {
+	my @Counts;
+	for my $ins (@Ins) {
+		push @Counts,getValue($DistInDelMatrix{$ins}{$cyc}{2});
+	}
+	print D join("\t",$cyc+$READLEN,@Counts),"\n";
+	print O join("\t",$cyc+$READLEN,@Counts),"\n";
+}
+
+close D;
 print O "<<END\n";
-
-print O "\nRL\n";
-print O "$_\t$RL{$_}\n" for (sort {$a<=>$b} keys %RL);
-
 close O;
