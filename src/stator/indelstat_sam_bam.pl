@@ -66,7 +66,7 @@ while (<IN>) {
 		warn "[w]",join("\t",@read1),"\n";
 		next;
 	}
-	++$Cnt{$Read12}{'All'};
+	$Cnt{$Read12}{'All'} += $READLEN;
 	++$InDel{$Read12}{'All'};
 	if ($read1[1] & 16) {	#  | r  | 0x0010 | strand of the query (1 for reverse)   |
 		$PosShift = -$READLEN - 1;
