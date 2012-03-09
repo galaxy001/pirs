@@ -47,7 +47,7 @@ if ($name =~ /\.bam$/) {
 }
 
 my $start_time = [gettimeofday];
-my (%Cnt,%InDel,%DistIns,%DistDel);
+my (%Cnt,%InDel,%LenInDel,%DistDel,%DistAll,%RL);
 my ($Read12,$PosShift,$cigar,$DelShift);
 while (<IN>) {
 	next if /^@\w\w\t\w\w:/;
@@ -85,6 +85,7 @@ while (<IN>) {
 		}
       # http://davetang.org/muse/2011/01/28/perl-and-sam/
       my $position = '1';
+	  my $flag=0;
       while ($cigar !~ /^$/){
          if ($cigar =~ /^([0-9]+[MIDS])/){
             my $cigar_part = $1;
@@ -92,19 +93,25 @@ while (<IN>) {
                $position += $1;
             } elsif ($cigar_part =~ /(\d+)I/){
 				if ($1 <= $MAXINDELEN) {
+					$flag=1;
 					$Cnt{$Read12}{'Ins'} += $1;
-					for my $p ($position .. ($position + $1 -1)) {
-						$DistIns{abs($p+$PosShift)}{$Read12}++;
+					my $p=abs($position+$DelShift+$PosShift);
+					$DistDel{$1}{$p}{$Read12}++;
+					++$LenInDel{$1}{$Read12};
+					#for my $p ($position .. ($position + $1 -1)) {
+						#$DistIns{abs($p+$PosShift)}{$Read12}++;
 #warn "$position -> ",$position+$PosShift,"\t$1\t$cigar\t$cigar_part\n$_\n" if abs($position+$PosShift)<=1 or abs($position+$PosShift)>=$READLEN;
-					}
+					#}
 #warn "$position -> ",$position+$PosShift,"\t$cigar\t$cigar_part\n$_\n" if abs($position+$PosShift)<1 or abs($position+$PosShift)>$READLEN;
 				}
                $position += $1;
             } elsif ($cigar_part =~ /(\d+)D/){
 				if ($1 <= $MAXINDELEN) {
+					$flag=1;
 					$Cnt{$Read12}{'Del'} += $1;
 					my $p=abs($position+$DelShift+$PosShift);
-					$DistDel{$p}{$1}{$Read12}++;	# 99M1D1M: D@99, not 100.
+					$DistDel{-$1}{$p}{$Read12}++;	# 99M1D1M: D@99, not 100.
+					++$LenInDel{-$1}{$Read12};
 					#$DistDel{-1}{$Read12}++;
 #warn "$position -> ",$p,"\t$1\t$cigar\t$cigar_part\n$_\n" if $p<1 or $p>=$READLEN;
 				}
@@ -120,6 +127,11 @@ while (<IN>) {
             die "Unexpected cigar: $cigar\n";
          }
       }
+	  if ($flag == 1) {
+		  #++$DistAll{abs($_+$PosShift)}{$Read12} for (1 .. $position);
+		  #++$RL{$position};
+		  die "[x]Read Length Error !\n" if $position != $READLEN + 1;
+	  }
 	}
 	#++$lines;
 	#last if $lines > 100*$MAXREADStoCHECK;
@@ -136,6 +148,18 @@ sub getValue($) {
 		return '0';
 	}
 }
+sub getRatio($$) {
+	if (defined $_[0]) {
+		if (defined $_[1] && $_[1]>0) {
+			return $_[0]/($_[1]*$READLEN);
+		} else {
+			return '-';
+		}
+	} else {
+		return '0';
+	}
+}
+
 open O,'>',$out or die "Error opening ${out} : $!\n";
 print O "[Info]\nFile=$name\nRead_Length=$READLEN\n<<END\n\n[Overall]\nRead\tType\tBaseCount\tBaseRatio\tReadCnt\tReadCntRatio\n";
 for my $Read12 (sort keys %Cnt) {
@@ -144,19 +168,22 @@ for my $Read12 (sort keys %Cnt) {
 		print O join("\t",$Read12,$_,$Cnt{$Read12}{$_},$Cnt{$Read12}{$_}/$Cnt{$Read12}{'All'},$InDel{$Read12}{$_},$InDel{$Read12}{$_}/$InDel{$Read12}{'All'}),"\n";
 	}
 }
-
+=pod
 print O "<<END\n\n[Insertion]\nCycle\tInsertion1\tInsertion2\n";
 for my $cyc (sort {$a<=>$b} keys %DistIns) {
-	print O join("\t",$cyc,getValue($DistIns{$cyc}{1}),getValue($DistIns{$cyc}{2})),"\n";
+	print O join("\t",$cyc,getValue($DistIns{$cyc}{1}),getValue($DistIns{$cyc}{2}),getValue($DistIns{$cyc}{1})/getValue($DistAll{$cyc}{1}),getValue($DistIns{$cyc}{2})),"\n";
 }
-
-print O "<<END\n\n[Deletion]\nCycle\tDeletion\tCount1\tCount2\n";
-for my $cyc (sort {$a<=>$b} keys %DistDel) {
+=cut
+print O "<<END\n\n[InDel]\nCycle\tInDel\tCount1\tCount2\n";
+for my $ins (sort {$a<=>$b} keys %DistDel) {
 	#next if $cyc == -1;
-	for my $ins (sort {$a<=>$b} keys %{$DistDel{$cyc}}) {
-		print O join("\t",$cyc,$ins,getValue($DistDel{$cyc}{$ins}{1}),getValue($DistDel{$cyc}{$ins}{2})),"\n";
+	for my $cyc (sort {$a<=>$b} keys %{$DistDel{$ins}}) {
+		print O join("\t",$ins,$cyc,getValue($DistDel{$ins}{$cyc}{1}),getValue($DistDel{$ins}{$cyc}{2})),"\n";
 	}
 }
 print O "<<END\n";
+
+print O "\nRL\n";
+print O "$_\t$RL{$_}\n" for (sort {$a<=>$b} keys %RL);
 
 close O;
