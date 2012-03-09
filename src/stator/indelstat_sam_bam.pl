@@ -6,7 +6,7 @@ use Time::HiRes qw ( gettimeofday tv_interval );
 my $SAMTOOLSBIN="samtools";
 $SAMTOOLSBIN="/ifs1/ST_ASMB/USER/yuanjy/huxuesong/tmp/group/rev/test/samtools";
 my $MAXREADStoCHECK=10000;
-my $MAXINDELEN=2;
+my $MAXINDELEN=3;
 
 die "Usage: $0 <single_sam_bam_file> <output> [max_running_minutes]\n" if @ARGV<2;
 my $name=shift;
@@ -47,7 +47,7 @@ if ($name =~ /\.bam$/) {
 }
 
 my $start_time = [gettimeofday];
-my (%Cnt,%DistIns,%DistDel);
+my (%Cnt,%InDel,%DistIns,%DistDel);
 my ($Read12,$PosShift,$cigar,$DelShift);
 while (<IN>) {
 	next if /^@\w\w\t\w\w:/;
@@ -67,6 +67,7 @@ while (<IN>) {
 		next;
 	}
 	++$Cnt{$Read12}{'All'};
+	++$InDel{$Read12}{'All'};
 	if ($read1[1] & 16) {	#  | r  | 0x0010 | strand of the query (1 for reverse)   |
 		$PosShift = -$READLEN - 1;
 		$DelShift = 0;
@@ -76,6 +77,12 @@ while (<IN>) {
 	}
 	$cigar=$read1[5];
 	if ($read1[5] =~ /(\d+)[ID]/) {	# I/D in reads
+		if ($read1[5] =~ /(\d+)I/) {
+			++$InDel{$Read12}{'Ins'};
+		}
+		if ($read1[5] =~ /(\d+)D/) {
+			++$InDel{$Read12}{'Del'};
+		}
       # http://davetang.org/muse/2011/01/28/perl-and-sam/
       my $position = '1';
       while ($cigar !~ /^$/){
@@ -88,18 +95,19 @@ while (<IN>) {
 					$Cnt{$Read12}{'Ins'} += $1;
 					for my $p ($position .. ($position + $1 -1)) {
 						$DistIns{abs($p+$PosShift)}{$Read12}++;
-warn "$position -> ",$position+$PosShift,"\t$1\t$cigar\t$cigar_part\n$_\n" if abs($position+$PosShift)<=1 or abs($position+$PosShift)>=$READLEN;
+#warn "$position -> ",$position+$PosShift,"\t$1\t$cigar\t$cigar_part\n$_\n" if abs($position+$PosShift)<=1 or abs($position+$PosShift)>=$READLEN;
 					}
 #warn "$position -> ",$position+$PosShift,"\t$cigar\t$cigar_part\n$_\n" if abs($position+$PosShift)<1 or abs($position+$PosShift)>$READLEN;
 				}
                $position += $1;
             } elsif ($cigar_part =~ /(\d+)D/){
-				next if ($1 > $MAXINDELEN);
-				$Cnt{$Read12}{'Del'} += $1;
-				my $p=abs($position+$DelShift+$PosShift);
-				$DistDel{$p}{$1}{$Read12}++;	# 99M1D1M: D@99, not 100.
-				#$DistDel{-1}{$Read12}++;
-warn "$position -> ",$p,"\t$1\t$cigar\t$cigar_part\n$_\n" if $p<1 or $p>=$READLEN;
+				if ($1 <= $MAXINDELEN) {
+					$Cnt{$Read12}{'Del'} += $1;
+					my $p=abs($position+$DelShift+$PosShift);
+					$DistDel{$p}{$1}{$Read12}++;	# 99M1D1M: D@99, not 100.
+					#$DistDel{-1}{$Read12}++;
+#warn "$position -> ",$p,"\t$1\t$cigar\t$cigar_part\n$_\n" if $p<1 or $p>=$READLEN;
+				}
                #$position += $1;
             } elsif ($cigar_part =~ /(\d+)S/){
                die "[!]Not ready for this!\n";
@@ -129,11 +137,11 @@ sub getValue($) {
 	}
 }
 open O,'>',$out or die "Error opening ${out} : $!\n";
-print O "[Info]\nFile=$name\nRead_Length=$READLEN\n<<END\n\n[Overall]\nRead\tType\tCount\tRatio\n";
-for my $Read12 (sort {$b cmp $a} keys %Cnt) {
-	for (sort keys %{$Cnt{$Read12}}) {
+print O "[Info]\nFile=$name\nRead_Length=$READLEN\n<<END\n\n[Overall]\nRead\tType\tBaseCount\tBaseRatio\tReadCnt\tReadCntRatio\n";
+for my $Read12 (sort keys %Cnt) {
+	for (sort {$b cmp $a} keys %{$Cnt{$Read12}}) {
 		#next if $_ eq 'All';
-		print O "$Read12\t$_\t$Cnt{$Read12}{$_}\t",$Cnt{$Read12}{$_}/$Cnt{$Read12}{'All'},"\n";
+		print O join("\t",$Read12,$_,$Cnt{$Read12}{$_},$Cnt{$Read12}{$_}/$Cnt{$Read12}{'All'},$InDel{$Read12}{$_},$InDel{$Read12}{$_}/$InDel{$Read12}{'All'}),"\n";
 	}
 }
 
