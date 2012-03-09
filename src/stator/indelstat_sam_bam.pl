@@ -6,7 +6,7 @@ use Time::HiRes qw ( gettimeofday tv_interval );
 my $SAMTOOLSBIN="samtools";
 $SAMTOOLSBIN="/ifs1/ST_ASMB/USER/yuanjy/huxuesong/tmp/group/rev/test/samtools";
 my $MAXREADStoCHECK=10000;
-my $MAXINDELEN=6;
+my $MAXINDELEN=3;
 
 die "Usage: $0 <single_sam_bam_file> <output_prefix> [max_running_minutes]\n" if @ARGV<2;
 my $name=shift;
@@ -178,7 +178,7 @@ for my $Read12 (sort keys %Cnt) {
 }
 print O "\nIndel\tCount1\tCount2\tBaseRatio1\tBaseRatio2\n";
 for (sort {$a<=>$b} keys %LenInDel) {
-	print O join("\t",$_,getValue($LenInDel{$_}{1}),getValue($LenInDel{$_}{2}),getRatio($LenInDel{$_}{1}*abs($_),$Cnt{1}{'All'}),getRatio($LenInDel{$_}{2}*abs($_),$Cnt{2}{'All'})),"\n";
+	print O join("\t",$_,getValue($LenInDel{$_}{1}),getValue($LenInDel{$_}{2}),getRatio($LenInDel{$_}{1},$Cnt{1}{'All'})*abs($_),getRatio($LenInDel{$_}{2},$Cnt{2}{'All'})*abs($_)),"\n";
 }
 
 my @Ins = sort {$a<=>$b} keys %DistInDelMatrix;
