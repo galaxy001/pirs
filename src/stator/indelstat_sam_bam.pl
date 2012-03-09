@@ -6,6 +6,7 @@ use Time::HiRes qw ( gettimeofday tv_interval );
 my $SAMTOOLSBIN="samtools";
 $SAMTOOLSBIN="/ifs1/ST_ASMB/USER/yuanjy/huxuesong/tmp/group/rev/test/samtools";
 my $MAXREADStoCHECK=10000;
+my $MAXINDELEN=2;
 
 die "Usage: $0 <single_sam_bam_file> <output> [max_running_minutes]\n" if @ARGV<2;
 my $name=shift;
@@ -83,14 +84,17 @@ while (<IN>) {
             if ($cigar_part =~ /(\d+)M/){
                $position += $1;
             } elsif ($cigar_part =~ /(\d+)I/){
-				$Cnt{$Read12}{'Ins'} += $1;
-				for my $p ($position .. ($position + $1 -1)) {
-					$DistIns{abs($p+$PosShift)}{$Read12}++;
+				if ($1 <= $MAXINDELEN) {
+					$Cnt{$Read12}{'Ins'} += $1;
+					for my $p ($position .. ($position + $1 -1)) {
+						$DistIns{abs($p+$PosShift)}{$Read12}++;
 warn "$position -> ",$position+$PosShift,"\t$1\t$cigar\t$cigar_part\n$_\n" if abs($position+$PosShift)<=1 or abs($position+$PosShift)>=$READLEN;
-				}
+					}
 #warn "$position -> ",$position+$PosShift,"\t$cigar\t$cigar_part\n$_\n" if abs($position+$PosShift)<1 or abs($position+$PosShift)>$READLEN;
+				}
                $position += $1;
             } elsif ($cigar_part =~ /(\d+)D/){
+				next if ($1 > $MAXINDELEN);
 				$Cnt{$Read12}{'Del'} += $1;
 				my $p=abs($position+$DelShift+$PosShift);
 				$DistDel{$p}{$1}{$Read12}++;	# 99M1D1M: D@99, not 100.

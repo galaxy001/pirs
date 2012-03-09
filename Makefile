@@ -4,6 +4,7 @@ PERL_LIST = stator/baseCallingMatrix/baseCalling_Matrix_analyzer \
 	stator/baseCallingMatrix/baseCalling_Matrix_calculator \
 	stator/baseCallingMatrix/baseCalling_Matrix_merger \
 	stator/alignment_stator \
+	stator/indelstat_sam_bam \
 	stator/gcContCvgBias/gc_coverage_bias_plot
 
 simulator:
