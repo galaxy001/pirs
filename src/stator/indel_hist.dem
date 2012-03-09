@@ -1,0 +1,23 @@
+#set title "US immigration from Northern Europe\nPlot selected data columns as histogram of clustered boxes"
+#set auto y
+#set xrange [0:40]
+#set yrange [0:5000]
+#set style fill solid border -1
+#set boxwidth 0.9
+#set xtic rotate by -45 scale 0
+#set bmargin 10 
+
+set term png font "/home/huxuesong/arial.ttf" 48 size 2102,1576 truecolor linewidth 3
+set output "InDel_hist.png"
+
+set xlabel "Read Cycle"
+set ylabel "Ratio"
+
+#set key autotitle columnhead
+plot 'p2-a3.InDel.dat' using 1:4 with lines lt rgb "red" lw 2 title 'Deletion of 1-bp', \
+     ''      using 1:5 with lines lt rgb "black" lw 2 title 'Insertion of 1-bp', \
+     ''      using 1:3 with lines lt rgb "orange" lw 2 title 'Deletion of 2-bp', \
+     ''      using 1:6 with lines lt rgb "blue" lw 2 title 'Insertion of 2-bp', \
+     ''      using 1:2 with lines lt rgb "cyan" lw 2 title 'Deletion of 3-bp', \
+     ''      using 1:7 with lines lt rgb "#00dd11" lw 2 title 'Insertion of 3-bp'
+#pause -1

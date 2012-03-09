@@ -1,6 +1,6 @@
 #/bin/bash
 
-### Base-Calling distribution profile ###
+### Base-Calling Profile ###
 # Using Soap2
 ./soap2.22 -a ./testA/testA_1.fq.gz -b ./testA/testA_2.fq.gz -D ./ref/human.fa.index -o ./soap/testA.soap -2 ./soap/testA.single -p 6 -t -s 40 -l 32 -m 600 -x 720 -v 5 -g 0 2>./soap/testA.log
 
@@ -15,7 +15,7 @@
 
 
 
-### GC%-Depth distribution profile ###
+### GC%-Depth Profile ###
 # Using Soap2 result
 ./soap.coverage -cvg -onlyuniq -i ./soap/testA_2.soap ./soap/testA_2.single -refsingle ./ref/human.fa -o testA_soap.dresult -depthsingle testA_soap.depth > testA_soap.deplog 2>testA_soap.deperr
 
@@ -25,3 +25,8 @@
 ./soap.coverage -sam -cvg -onlyuniq -i ./soap/testA_2.soap ./soap/testA_2.single -refsingle ./ref/human.fa -o testA_soap.dresult -depthsingle testA_soap.depth > testA_soap.deplog 2>testA_soap.deperr
 
 ./gc_coverage_bias -r ./ref/human.fa -o testA_soap -w 100,150,200 testA_soap.depth
+
+
+
+### InDel Profile ###
+./indelstat_sam_bam 110416_I327_FCB008GACXX_L1_PHIXCONTROLv2.sam.gz phixv2
