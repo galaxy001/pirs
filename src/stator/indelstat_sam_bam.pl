@@ -154,10 +154,10 @@ sub getValue($) {
 }
 sub getRatio($$) {
 	if (defined $_[0]) {
-		if (defined $_[1] && $_[1]>0) {
+		if ((defined $_[1]) && ($_[1] != 0)) {
 			return $_[0]/$_[1];
 		} else {
-			return '-';
+			return '0';
 		}
 	} else {
 		return '0';
@@ -185,7 +185,7 @@ for (sort {$a<=>$b} keys %LenInDel) {
 	print O join("\t",$_,getValue($LenInDel{$_}{1}),getValue($LenInDel{$_}{2}),getRatio($LenInDel{$_}{1},$Cnt{1}{'All'})*abs($_),getRatio($LenInDel{$_}{2},$Cnt{2}{'All'})*abs($_)),"\n";
 }
 
-my @Ins = sort {$a<=>$b} keys %DistInDelMatrix;
+my @Ins = (-$MAXINDELEN .. -1, 1 .. $MAXINDELEN);
 print O "<<END\n\n[InDel]\nCycle\t",join("\t",@Ins),"\n";
 
 open D,'>',$out.'.InDel.dat' or die "Error opening ${out}.InDel.dat : $!\n";
