@@ -105,9 +105,17 @@ while (<IN>) {
 				if ($1 <= $MAXINDELEN) {
 					$flag=1;
 					$Cnt{$Read12}{'Ins'} += $1;
-					my $p=abs($position+$DelShift+$PosShift);
+					my $p=abs($position+$PosShift);
+					if ($DelShift==1) {	# minus strand
+						$p -= $1;
+					} else {	# + strand
+						$p -= 1;
+					}
 					$DistInDelMatrix{$1}{$p}{$Read12}++;
 					++$LenInDel{$1}{$Read12};
+#if ($cigar eq "3I2M2D94M" or $p == 98 and $1> 1) {
+#	warn "$position -> ",$position+$PosShift,"\t$1,$p,$Read12\t$cigar\t$cigar_part\n$_\n";
+#}
 					#for my $p ($position .. ($position + $1 -1)) {
 						#$DistIns{abs($p+$PosShift)}{$Read12}++;
 #warn "$position -> ",$position+$PosShift,"\t$1\t$cigar\t$cigar_part\n$_\n" if abs($position+$PosShift)<=1 or abs($position+$PosShift)>=$READLEN;
