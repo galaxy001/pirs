@@ -8,7 +8,7 @@ use warnings;
 use Time::HiRes qw ( gettimeofday tv_interval );
 
 my $SAMTOOLSBIN="samtools";
-$SAMTOOLSBIN="/ifs1/ST_ASMB/USER/yuanjy/huxuesong/tmp/group/rev/test/samtools";
+#$SAMTOOLSBIN="/ifs1/ST_ASMB/USER/yuanjy/huxuesong/tmp/group/rev/test/samtools";
 my $MAXREADStoCHECK=10000;
 my $MAXINDELEN=3;
 
@@ -23,6 +23,10 @@ if ($name =~ /\.bam$/) {
 	open IN,'-|',"$SAMTOOLSBIN view -f 3 -F 1536 -S $name" or die "Error opening $name : $!\n";
 } elsif ($name =~ /\.sam$/) {
 	open IN,'-|',"$SAMTOOLSBIN view -f 3 -F 1536 -S $name" or die "Error opening $name : $!\n";
+} elsif ($name =~ /\.indel\.gz$/) {
+	open IN,'-|',"zcat $name" or die "Error opening $name : $!\n";
+	$READLEN=100;
+	goto START;
 } else {
 	die "[x]Unsupport file type.";
 }
@@ -50,6 +54,7 @@ if ($name =~ /\.bam$/) {
 	die "[x]Unsupport file type.";
 }
 
+START:
 my $start_time = [gettimeofday];
 my (%Cnt,%InDel,%LenInDel,%DistInDelMatrix,%DistAll,%RL);
 my ($Read12,$PosShift,$cigar,$DelShift);
@@ -74,7 +79,8 @@ while (<IN>) {
 	++$InDel{$Read12}{'All'};
 	if ($read1[1] & 16) {	#  | r  | 0x0010 | strand of the query (1 for reverse)   |
 		$PosShift = -$READLEN - 1;
-		$DelShift = 0;
+		$DelShift = 1;
+		#next;
 	} else {	# +
 		$PosShift = 0;
 		$DelShift = -1;
