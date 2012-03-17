@@ -336,11 +336,20 @@ string load_InDel_error_profile(PARAMETER InputParameter, string exe_path, int s
 					{
 						string num = str_line_tokens[i+1];
 						uint64_t current_num = boost::lexical_cast<uint64_t>(num);
+						
 						int j = i;
 						if(j >= InDel_max_len){j++;}  //insertion 
+							
+						if((simulate_cycle <= InputParameter.Read_length) && (InputParameter.Read_length - simulate_cycle < InDel_num[j])
+							|| (simulate_cycle > InputParameter.Read_length) && (InputParameter.Read_length - (simulate_cycle - InputParameter.Read_length) < InDel_num[j]))
+						{//modify read-end insertion base-num
+							current_num = 0;
+						}
+					
 						InDel_error_matrix[simulate_cycle-1][j] = current_num;
 						
-						if(simulate_cycle < InputParameter.Read_length){  //read1 indel
+						
+						if(simulate_cycle <= InputParameter.Read_length){  //read1 indel
   						if(i<InDel_max_len)
   						{
   							read1_del_num += abs(InDel_num[j]) * current_num;

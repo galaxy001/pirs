@@ -753,9 +753,33 @@ uint64_t simulate_fq_reads(string &seq,uint64_t seqlen, uint64_t rd_pair, string
 			Is_insertion_pos2[i] = 0;
 		}	
 		string read1=ref2read(ref_read1, indel1, Is_insertion_pos1);
-		string read2=ref2read(ref_read2, indel2, Is_insertion_pos2);		
-		
-		
+		/*
+		if(read1.size()!=InputParameter.Read_length)
+		{
+			cerr<<"read1: "<<read1<<endl;
+			cerr<<"Error: length of read1 not equal to "<<InputParameter.Read_length<<endl;
+			cerr<<"ref_read1: "<<ref_read1<<endl;
+			for(int i = 0; i < InputParameter.Read_length+10; i++)
+			{
+				if(indel1.count(i) == 0){continue;}
+				cerr<<"1pos: "<<i<<"\t"<<indel1[i]<<endl;
+			}
+		}
+		*/
+		string read2=ref2read(ref_read2, indel2, Is_insertion_pos2);	
+		/*	
+		if(read2.size()!=InputParameter.Read_length)
+		{
+			cerr<<"read2: "<<read2<<endl;
+			cerr<<"Error: length of read1 not equal to "<<InputParameter.Read_length<<endl;
+			cerr<<"ref_read2: "<<ref_read2<<endl;
+			for(int i = 0; i < InputParameter.Read_length+10; i++)
+			{
+				if(indel2.count(i) == 0){continue;}
+				cerr<<"2pos: "<<i<<"\t"<<indel2[i]<<endl;
+			}
+		}
+		*/
 		string output_read1, output_read2, output_quality_seq1, output_quality_seq2;
 		
 		vector<int> error_pos1;
@@ -857,6 +881,8 @@ uint64_t simulate_fq_reads(string &seq,uint64_t seqlen, uint64_t rd_pair, string
     			else{
     				Qscore = location;
     			}
+    			
+//    			cerr<<"ref_base: "<<ref_base<<" cycle: "<<cycle<<" Qscore: "<<Qscore<<" Seq_Base_num:"<<Seq_Base_num<<" num2:"<<num2<<endl;
   				int location2 = search_location(Simulation_matrix1[alphabet2[ref_base]][cycle][Qscore], Seq_Base_num, num2);
   				if(location2 == Seq_Base_num){
   					call_base = ref_base;
@@ -953,6 +979,7 @@ uint64_t simulate_fq_reads(string &seq,uint64_t seqlen, uint64_t rd_pair, string
 		
 		delete[] Is_insertion_pos1;
 		delete[] Is_insertion_pos2;
+		
 		
 		//output simulate reads
 		if (reads_count%10000==0)
@@ -1126,6 +1153,7 @@ uint64_t simulate_fq_reads(string &seq,uint64_t seqlen, uint64_t rd_pair, string
   			<<"+"<<endl
   			<<output_quality_seq2<<endl;
 		}
+		
 	}
 	cerr<<"Finish output reads"<<endl;
 	return reads_count;
