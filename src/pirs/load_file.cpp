@@ -192,9 +192,231 @@ void preview_BaseCalling_profile (PARAMETER InputParameter, string exe_path, int
 		}
 	}
 	
+	infile.close();
+	
 	//get BaseCalling profile average error rate
 	statistical_average_error_rate = double(total_error_sum)/double(total_count_sum);
   
+}
+
+void preview_InDel_error_profile (PARAMETER InputParameter, string exe_path, int &Statistical_Cycle_num2, int &InDel_max_len, uint64_t &read1_count, uint64_t &read2_count)
+{
+	string matrix_file;
+	
+	if(InputParameter.InDel_error_profile == ""){
+  	int index = exe_path.find_last_of('/');
+  	if(index == -1){
+  		cerr<<"Error: program path wrong!"<<endl;
+  	}
+  	else{
+  		string directory_path = exe_path.substr(0,index);
+  		matrix_file = directory_path + INDEL_ERROR_PROFILE;
+  	}
+	}else{
+		matrix_file = InputParameter.InDel_error_profile;
+	}
+	
+  igzstream infile;
+  infile.open(matrix_file.c_str());
+  if ( ! infile )
+	{
+		cerr << "fail to open input file" << matrix_file << endl;
+	}
+	
+	string lineStr;
+	while (getline( infile, lineStr, '\n' ))
+	{ 
+		if(lineStr == ""){continue;}
+		if(lineStr == "<<END"){break;}
+
+		vector<string> lineVec;
+		boost::split(lineVec,lineStr, boost::is_any_of(" \t\n"), boost::token_compress_on);				
+		
+		//"Read_Length = 100"
+		if (lineVec[0] == "Read_Length")
+		{
+			Statistical_Cycle_num2 = atoi(lineVec[2].c_str()) * 2;
+			if(InputParameter.Read_length > Statistical_Cycle_num2/2){cerr<<"Error: according to the InDel-error profile, program can be simulate "<< Statistical_Cycle_num2/2 <<"bp read length at most, please set read length again!"<<endl;exit(-1);}
+		}
+		
+		//"Read_1_Count = 147091454"
+		if (lineVec[0] == "Read_1_Count")
+		{
+			read1_count = boost::lexical_cast<uint64_t>(lineVec[2]);
+		}
+		
+		//"Read_2_Count = 145785569"
+		if (lineVec[0] == "Read_2_Count")
+		{
+			read2_count = boost::lexical_cast<uint64_t>(lineVec[2]);
+		}
+		
+		//"MaxInDel_Length = 3"
+		if(lineVec[0] == "MaxInDel_Length")
+		{
+			InDel_max_len = atoi(lineVec[2].c_str());
+		}
+	}
+	
+	infile.close();
+}
+
+//load InDel-error profile and get the InDel distribution table.
+string load_InDel_error_profile(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num2, int InDel_max_len, uint64_t read1_count,
+ uint64_t read2_count, int* InDel_num, double** InDel_error_matrix)
+{
+	string matrix_file;
+	
+	if(InputParameter.InDel_error_profile == ""){
+  	int index = exe_path.find_last_of('/');
+  	if(index == -1){
+  		cerr<<"Error: program path wrong!"<<endl;
+  	}
+  	else{
+  		string directory_path = exe_path.substr(0,index);
+  		matrix_file = directory_path + INDEL_ERROR_PROFILE;
+  	}
+	}else{
+		matrix_file = InputParameter.InDel_error_profile;
+	}
+
+	igzstream MatrixFile;
+	MatrixFile.open(matrix_file.c_str());
+	if ( ! MatrixFile )
+	{	cerr << "fail to open input file " << matrix_file <<", please make sure statistics file place in program directory!"<< endl;
+		exit(-1);
+	}
+	
+	string str_line;
+	cerr <<"Start to construct InDel-error matrix..."<<endl
+		<<"Loading file: "<<matrix_file<<endl;
+	
+	uint64_t read1_ins_num = 0;
+	uint64_t read1_del_num = 0;
+	uint64_t read2_ins_num = 0;
+	uint64_t read2_del_num = 0;
+	
+	int simulate_cycle = 0;
+	bool isEnd = 0;
+	while(getline(MatrixFile, str_line, '\n'))
+	{
+		if(isEnd){break;}
+		//[InDel]
+    //Cycle   -3      -2      -1      1       2       3
+		//1       0       6       2       4       0       0
+    //2       0       2       13      32      5       0
+    //3       0       5       224     31      3       0
+    //4       0       1       278     34      7       0
+		//.....
+		if(str_line == "[InDel]")
+		{
+			
+			while(getline(MatrixFile, str_line, '\n'))
+			{
+				if(str_line == "" || str_line[0] == '#' || str_line[0] == 'C'){continue;}
+				if(str_line == "<<END"){isEnd = 1; break;}
+    		vector<string> str_line_tokens;
+    		boost::split(str_line_tokens,str_line, boost::is_any_of(" \t\n"), boost::token_compress_on);
+    		if(str_line_tokens.size() != InDel_max_len*2 + 1)
+    		{
+    			cerr<<"Error: Length of InDel are not consistent, please check the InDel-error profile is in right format!"<<endl;
+    			exit(-1);
+    		}
+    		int current_cycle = atoi(str_line_tokens[0].c_str());
+    		
+    		if(current_cycle <= InputParameter.Read_length || (current_cycle > statistical_Cycle_num2/2 && current_cycle <= statistical_Cycle_num2/2+InputParameter.Read_length))
+    		{
+    			simulate_cycle = current_cycle;
+    			if(simulate_cycle >= statistical_Cycle_num2/2){
+    				simulate_cycle = InputParameter.Read_length + (current_cycle - statistical_Cycle_num2/2);
+    			}
+
+					uint64_t indel_sum = 0;
+					for(int i = 0; i < InDel_max_len*2;i++)
+					{
+						string num = str_line_tokens[i+1];
+						uint64_t current_num = boost::lexical_cast<uint64_t>(num);
+						int j = i;
+						if(j >= InDel_max_len){j++;}  //insertion 
+						InDel_error_matrix[simulate_cycle-1][j] = current_num;
+						
+						if(simulate_cycle < InputParameter.Read_length){  //read1 indel
+  						if(i<InDel_max_len)
+  						{
+  							read1_del_num += abs(InDel_num[j]) * current_num;
+  						}else{
+  							read1_ins_num += InDel_num[j] * current_num;
+  						}
+						}else{  //read2 indel
+  						if(i<InDel_max_len)
+  						{
+  							read2_del_num += abs(InDel_num[j]) * current_num;
+  						}else{
+  							read2_ins_num += InDel_num[j] * current_num;
+  						}
+						}
+						
+						
+						indel_sum+=current_num;
+					}
+					
+					//count 0-indel number
+					if(simulate_cycle < InputParameter.Read_length){
+						InDel_error_matrix[simulate_cycle-1][InDel_max_len] = read1_count - indel_sum;
+					}else{
+						InDel_error_matrix[simulate_cycle-1][InDel_max_len] = read2_count - indel_sum;
+					}
+    		}
+			}
+		}else{
+			continue;
+		}
+	}
+	
+	double read1_ins_rate = double(read1_ins_num)/double(read1_count*InputParameter.Read_length);
+	double read1_del_rate = double(read1_del_num)/double(read1_count*InputParameter.Read_length);
+	double read2_ins_rate = double(read2_ins_num)/double(read2_count*InputParameter.Read_length);
+	double read2_del_rate = double(read2_del_num)/double(read2_count*InputParameter.Read_length);
+	
+  cerr << "\nDimensions of InDel-error profile:\n";
+  cerr << "       profile_Cycle_num: " << statistical_Cycle_num2 << endl;
+  cerr << "       read1 count: " << read1_count << endl;
+  cerr << "       read2 count: " << read2_count << endl;
+  cerr << "       length of max InDel: " << InDel_max_len << endl;
+  cerr << "       insertion-base rate of "<<InputParameter.Read_length << "-bp read1: " << read1_ins_rate << endl;
+  cerr << "       deletion-base rate of "<<InputParameter.Read_length << "-bp read1: " << read1_del_rate << endl;
+  cerr << "       insertion-base rate of "<<InputParameter.Read_length << "-bp read2: " << read2_ins_rate << endl;
+  cerr << "       deletion-base rate of "<<InputParameter.Read_length << "-bp read2: " << read2_del_rate << endl;
+
+	for(int j=0; j<statistical_Cycle_num2; j++)
+	{
+		//the cumulative rate
+		double sum = 0;
+		for(int k=0; k<InDel_max_len*2+1; k++)
+		{
+			sum += InDel_error_matrix[j][k];
+		}
+		if(sum == 0)
+		{
+			for(int k = 0; k < InDel_max_len*2+1; k++)
+			{
+				InDel_error_matrix[j][k] = 0;
+			}
+		}else{
+			double accumulate_value = 0;
+			for(int k = 0; k < InDel_max_len*2+1; k++)
+			{
+				accumulate_value += InDel_error_matrix[j][k];
+				InDel_error_matrix[j][k] = accumulate_value/sum;
+			}
+		}
+	}
+	
+  MatrixFile.close();
+  
+  cerr <<"Have finished constructing InDel-error simulation matrix"<<endl;
+  
+  return matrix_file;
 }
 
 //read in quality distribution file and get the quality distribution table.
@@ -373,7 +595,8 @@ string load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int s
 			continue;
 		}
 	}
-  
+	
+  MatrixFile.close();
   cerr <<"Have finished constructing Base-calling simulation matrix1"<<endl;
   return matrix_file;
 }
@@ -559,6 +782,8 @@ string load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int s
 		}
 	}
   
+  MatrixFile.close();
+  
   cerr <<"Have finished constructing Base-calling simulation matrix1"<<endl;
   
   return matrix_file;
@@ -669,6 +894,7 @@ string load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int s
     }
   } 
   
+  MatrixFile.close();
   
   cerr <<"Have finished constructing Base-calling simulation matrix2"<<endl;
   
@@ -763,6 +989,7 @@ string load_GC_depth_profile (PARAMETER InputParameter, string exe_path, double*
   	cerr<<"GC%:"<<i<<"\t"<<GC_bias_abundance[i]<<endl;
   }
   
+  infile.close();
   
   cerr <<"Have finished constructing GC bias simulation matrix"<<endl;
   

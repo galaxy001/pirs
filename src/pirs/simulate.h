@@ -35,16 +35,13 @@ string Get_snp(string &seq,ofstream &snp,string id, double hetersnp_rate, double
 //Get invert sequence
 string Get_invertion(string &seq, ofstream &invertion_file, string id, double SV_rate);
 
-//Get indel sequence
-string Get_indel(string &seq,ofstream &indel,string id1,double heterindel_rate,double SV_rate);
+//Get indel genome sequence
+string Get_genome_indel(string &seq,ofstream &indel,string id1,double heterindel_rate,double SV_rate);
 
-//Set indel rate
-void set_rate(int read_len, double total_rate, int max_num, vector <double>& rate);
-
-//simulate reads indel 
-int simulate_reads_indel(vector<double> del_rate, vector<double> ins_rate, map<int,char,less<int> > &indel, int read_len);
+//Get reads-indel error
+void get_reads_indel(int read_len, map<int,string,less<int> > &indel1, map<int,string,less<int> > &indel2, int &r1_indel_len, int &r2_indel_len, int InDel_max_len, double** InDel_matrix, int* InDel_num);
 
 //Get indel read
-string ref2read(string seq_ref, map<int,char,less<int> > indel);
+string ref2read(string seq_ref, map<int,string,less<int> > indel, bool* is_insertion_pos);
 
 #endif

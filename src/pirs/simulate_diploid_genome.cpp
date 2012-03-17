@@ -14,7 +14,7 @@ string input;
 double hetersnp_rate=0.001;
 double heterindel_rate=0.0001;
 double big_SV_rate=0.000001; // structural variation rate
-double snp_transition_by_transvertion_rate = 2; //transition_number : transvertion_rate_number = 2
+double snp_transition_by_transvertion_rate = 2; //transition_number ：transvertion_rate_number = 2
 int output_type = 1;
 ofstream outfile;
 ogzstream gz_outfile;
@@ -172,6 +172,14 @@ int simulate_diploid_genome(int argc, char *argv[])
 	
 	Get_raw_genome(infile,SNP_File,Indel_File,Ivertion_File);
 	
+	infile.close();
+	
+	if(!output_type){
+		outfile.close();
+	}else{
+		gz_outfile.close();
+	}
+	
 	time_end = time(NULL);
 	cerr<<"All done! Run time: "<<time_end-time_start<<"s."<<endl;
 	
@@ -230,7 +238,7 @@ void simulate_snp_indel_seq(string id_line,string id,string &sequence, ofstream 
 		if (heterindel_rate>0 || big_SV_rate>0)
 		{
 			cerr<<"Begin to simulate indel"<<endl;
-			sequence=Get_indel(sequence,indel_file,id,heterindel_rate,big_SV_rate);
+			sequence=Get_genome_indel(sequence,indel_file,id,heterindel_rate,big_SV_rate);
 			cerr<<"Have finished simulating indel"<<endl;
 		}
 
