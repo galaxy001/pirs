@@ -21,9 +21,17 @@ symlinks:
 	    ln -s ./src/$${P}.pl `basename $${P}` 2> /dev/null; \
 	done
 
+test: all
+	cd ./src/pirs && ${MAKE} test
+	cd ./src/stator/gcContCvgBias && ${MAKE} test
+
 clean:
 	cd ./src/pirs && ${MAKE} clean
 	cd ./src/stator/gcContCvgBias && ${MAKE} clean
+
+allclean: clean
+	cd ./src/pirs && ${MAKE} allclean
+	cd ./src/stator/gcContCvgBias && ${MAKE} allclean
 	-rm pirs gc_coverage_bias
 	-@for P in ${PERL_LIST}; do \
 	    rm `basename $${P}`; \
