@@ -15,6 +15,7 @@ typedef struct{
   int Is_simulate_quality;
   int Q_Mode;
   int Q_shift;
+  int Mask_quality_mode;
   int Output_type;
   double Coverage;
   double Error_rate;

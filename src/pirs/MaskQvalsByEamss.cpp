@@ -21,7 +21,7 @@
 
 #include <boost/assign.hpp>
 
-#include "demultiplex/MaskQvalsByEamss.hh"
+#include "MaskQvalsByEamss.h"
 
 namespace casava
 {
@@ -31,18 +31,20 @@ namespace demultiplex
 const int MaskQvalsByEamss::lowScore = 1;
 const int MaskQvalsByEamss::mediumScore = 0;
 const int MaskQvalsByEamss::highScore = -2;
-const char MaskQvalsByEamss::mediumThreshold = 'O';
-const char MaskQvalsByEamss::highThreshold = '^';
+const char MaskQvalsByEamss::mediumThreshold = 15;
+const char MaskQvalsByEamss::highThreshold = 30;
 const int MaskQvalsByEamss::minScore = 1;
 const std::vector<std::string> MaskQvalsByEamss::motifList = std::vector<std::string>(0);
 
 /**
  ** \brief Mask quality using the EAMSS algorithm
  **/
+//void MaskQvalsByEamss::operator()(std::string &qValues,
+//                                  const std::string &baseCalls) const
 void MaskQvalsByEamss::operator()(std::string &qValues,
-                                  const std::string &baseCalls) const
+                                  std::string &baseCalls, int mode, int qShift) const
 {
-    std::pair<int, int> tmp = eamss(qValues);
+    std::pair<int, int> tmp = eamss(qValues, qShift);
     const int score = tmp.first;
     int position = tmp.second;
     const bool filterRead = (score >= minScore);
@@ -94,10 +96,22 @@ void MaskQvalsByEamss::operator()(std::string &qValues,
     {
         position = maskStart;
     }
-    for (int idx = position; static_cast<long int>(qValues.length()) > idx; ++idx)
+    if (mode == 1)
     {
-        qValues[idx] = 'B';
+    	for (int idx = position; static_cast<long int>(qValues.length()) > idx; ++idx)
+    	{
+     	   qValues[idx] = 2 + qShift;
+   		}
+    }else{
+    	for (int idx = position; static_cast<long int>(baseCalls.length()) > idx; ++idx)
+    	{
+     	   baseCalls[idx] = baseCalls[idx] + 32; //to lowercase
+   		}
     }
+//    for (int idx = position; static_cast<long int>(qValues.length()) > idx; ++idx)
+//    {
+//        qValues[idx] = 'B';
+//    }
 }
 
 /**
@@ -106,7 +120,7 @@ void MaskQvalsByEamss::operator()(std::string &qValues,
  ** \return the pair (bestScore, bestPosition) or (highScore-1, -1) if qValues
  ** is empty
  **/
-std::pair<int, int> MaskQvalsByEamss::eamss(const std::string &qValues) const
+std::pair<int, int> MaskQvalsByEamss::eamss(const std::string &qValues, int qShift) const
 {
     int curScore = 0;
     // initialize the bestscore to something lower than the first value of curScore
@@ -114,11 +128,11 @@ std::pair<int, int> MaskQvalsByEamss::eamss(const std::string &qValues) const
     int bestPosition = -1;
     for (int idx = qValues.length() - 1; 0 <= idx; --idx)
     {
-        if (qValues[idx] >= highThreshold)
+        if (qValues[idx] >= highThreshold + qShift)
         {
             curScore += highScore;
         }
-        else if (qValues[idx] >= mediumThreshold)
+        else if (qValues[idx] >= mediumThreshold + qShift)
         {
             curScore += mediumScore;
         }

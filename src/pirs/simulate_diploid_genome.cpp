@@ -116,7 +116,12 @@ int simulate_diploid_genome(int argc, char *argv[])
 	string invertion_output = output_prefix+"_invertion.lst";
 	if(hetersnp_rate != 0){output_prefix = output_prefix+".snp";}
 	if(heterindel_rate != 0){output_prefix = output_prefix+".indel";}
-	if(big_SV_rate !=0){output_prefix = output_prefix+".invertion";}
+	if(big_SV_rate !=0){
+		if(heterindel_rate == 0){
+			output_prefix = output_prefix+".indel";
+		}
+		output_prefix = output_prefix+".invertion";
+	}
 		
 	string output_ref_file;
 	if(!output_type){
@@ -162,6 +167,14 @@ int simulate_diploid_genome(int argc, char *argv[])
 	}
 	
 	if(big_SV_rate>0){
+		if(heterindel_rate == 0){
+			Indel_File.open(indel_output.c_str());
+    	if(!Indel_File)
+    	{
+    		cerr<<"Error:unable to open output file:"<<indel_output<<endl;
+    		exit(-1);
+    	}
+		}
   	Ivertion_File.open(invertion_output.c_str());
   	if(!Ivertion_File)
   	{
@@ -179,6 +192,21 @@ int simulate_diploid_genome(int argc, char *argv[])
 	}else{
 		gz_outfile.close();
 	}
+	
+	if(hetersnp_rate>0){
+  	SNP_File.close();
+	}	
+	
+	if(heterindel_rate>0){
+  	Indel_File.close();
+	}
+	
+	if(big_SV_rate>0){
+		if(heterindel_rate == 0){
+			Indel_File.close();
+		}
+  	Ivertion_File.close();
+	}	
 	
 	time_end = time(NULL);
 	cerr<<"All done! Run time: "<<time_end-time_start<<"s."<<endl;

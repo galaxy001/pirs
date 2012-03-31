@@ -19,8 +19,8 @@
  ** \author Come Raczy
  **/
 
-#ifndef CASAVA_DEMULTIPLEX_MASK_QVALS_BY_EAMSS_HH
-#define CASAVA_DEMULTIPLEX_MASK_QVALS_BY_EAMSS_HH
+#ifndef CASAVA_DEMULTIPLEX_MASK_QVALS_BY_EAMSS_H
+#define CASAVA_DEMULTIPLEX_MASK_QVALS_BY_EAMSS_H
 
 namespace casava
 {
@@ -30,8 +30,10 @@ namespace demultiplex
 class MaskQvalsByEamss
 {
 public:
+//    void operator()(std::string &qValues,
+//                    const std::string &baseCalls) const;
     void operator()(std::string &qValues,
-                    const std::string &baseCalls) const;
+                    std::string &baseCalls, int mode, int qShift) const;
 private:
     static const int lowScore;
     static const int mediumScore;
@@ -40,11 +42,11 @@ private:
     static const char highThreshold;
     static const int minScore;
     static const std::vector<std::string> motifList;
-    std::pair<int, int> eamss(const std::string &qValues) const;
+    std::pair<int, int> eamss(const std::string &qValues, int qShift) const;
     int findStr(const std::string &targetString, const std::string &queryString, int start, int stop) const;
 };
 
 } // namespace demultiplex
 } // namespace casava
 
-#endif // #ifndef CASAVA_DEMULTIPLEX_MASK_QVALS_BY_EAMSS_HH
+#endif // #ifndef CASAVA_DEMULTIPLEX_MASK_QVALS_BY_EAMSS_H

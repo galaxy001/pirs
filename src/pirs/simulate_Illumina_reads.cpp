@@ -9,12 +9,34 @@
 #include "gzstream.h"
 #include "simulate.h"
 #include "load_file.h"
+#include "MaskQvalsByEamss.h"
 #include "global.h"
 
 using namespace std;
 
-//parameter variable
-PARAMETER InputParameter ={100,500,-1,1,0,1,1,1,64,1,5,-1,"","","","","","Illumina"};
+/*parameter variable:
+
+  int Read_length;
+  int Insertsize_mean;
+  int Insertsize_sd;
+	int Is_simulate_InDel;
+  int Is_cyclization;
+  int Is_simulate_GC_bias;
+  int Is_simulate_quality;
+  int Q_Mode;
+  int Q_shift;
+  int Mask_quality_mode;
+  int Output_type;
+  double Coverage;
+  double Error_rate;
+	string Input_ref1;
+  string Input_ref2;
+  string BaseCalling_profile;
+  string GC_depth_profile;
+  string InDel_error_profile;
+  string Output_prefix;
+ */
+PARAMETER InputParameter ={100,500,-1,1,0,1,1,1,64,0,1,5,-1,"","","","","","Illumina"};
 
 int Ref_Base_num = 0;  //ATCG: 4
 int Statistical_Cycle_num = 0; //the cycle number in Base-calling profile
@@ -88,6 +110,7 @@ void SimReads_Usage(){
 	cout<<"\t-q  <int>     simulate quality value, 0:no(fasta), 1:yes(fastq), default:"<<InputParameter.Is_simulate_quality<<endl;
 	cout<<"\t-M  <int>     simulate quality value by Quality-transition mode, 0:no, 1:yes, default:"<<InputParameter.Q_Mode<<endl;
 	cout<<"\t-Q  <int>     ASCII shift of quality value, generally 64 or 33 for Illumina data, default:"<<InputParameter.Q_shift<<endl;
+	cout<<"\t-E  <int>     mask quality values with EAMSS using, 0:no, 1:Quality=2, 2:lowercase Base. default:"<< InputParameter.Mask_quality_mode<<endl;
 	cout<<"\t-f  <int>     cyclize insert fragment (influence on PE reads' direction) 0: read1-forward read2-reverse, 1: read1-reverse read2-forward, default:"<<InputParameter.Is_cyclization<<endl;
 	cout<<"\t-c  <int>     output file type, 0:text, 1:compressed(*.gz), default:"<<InputParameter.Output_type<<endl;
 	cout<<"\t-o  <string>  prefix of output file, default:"<<InputParameter.Output_prefix<<endl;
@@ -113,7 +136,7 @@ void SimReads_Usage(){
 
 void SimReads_Getopt(int argc,char *argv[]){
 	int c;
-	while ((c=getopt(argc,argv,"i:I:s:d:b:l:x:m:v:a:f:g:q:M:Q:c:o:h"))!=-1)
+	while ((c=getopt(argc,argv,"i:I:s:d:b:l:x:m:v:a:f:g:q:M:Q:E:c:o:h"))!=-1)
 	{
 		switch(c){
 			case 'i': InputParameter.Input_ref1=optarg;break;
@@ -131,6 +154,7 @@ void SimReads_Getopt(int argc,char *argv[]){
 			case 'q': InputParameter.Is_simulate_quality=atoi(optarg);break;
 			case 'M': InputParameter.Q_Mode=atoi(optarg);break;
 			case 'Q': InputParameter.Q_shift=atoi(optarg);break;
+			case 'E': InputParameter.Mask_quality_mode=atoi(optarg);break;
 			case 'c': InputParameter.Output_type=atoi(optarg);break;
 			case 'o': InputParameter.Output_prefix=optarg;break;
 			case 'h': SimReads_Usage();break;
@@ -168,6 +192,7 @@ int simulate_Illumina_reads(int argc, char *argv[])
 	if(InputParameter.Is_simulate_quality != 0 && InputParameter.Is_simulate_quality != 1){cerr<<"Error: Is_simulate_quality should be set 0 or 1, please check option -q !"<<endl;exit(-1);}
 	if(InputParameter.Is_simulate_InDel != 0 && InputParameter.Is_simulate_InDel != 1){cerr<<"Error: Is_simulate_InDel should be set 0 or 1, please check option -a !"<<endl;exit(-1);}
 	if(InputParameter.Q_Mode != 0 && InputParameter.Q_Mode != 1){cerr<<"Error: Q_Mode should be set 0 or 1, please check option -M !"<<endl;exit(-1);}
+	if(InputParameter.Mask_quality_mode != 0 && InputParameter.Mask_quality_mode != 1 && InputParameter.Mask_quality_mode != 2){cerr<<"Error: Mask_quality_mode should be set 0 , 1 or 2, please check option -E !"<<endl;exit(-1);}
 	if(InputParameter.Output_type != 0 && InputParameter.Output_type != 1){cerr<<"Error: output_type should be set 0 or 1, please check option -c !"<<endl;exit(-1);}
 
 	//set the simulate cycle number
@@ -374,6 +399,14 @@ int simulate_Illumina_reads(int argc, char *argv[])
 	{
 		Is_qt = "no";
 	}
+	string mode_of_Mask = "none";
+	if(InputParameter.Mask_quality_mode == 1)
+	{
+		mode_of_Mask = "Quality = 2";
+	}else if(InputParameter.Mask_quality_mode == 2)
+	{
+		mode_of_Mask = "Lowercase Base";
+	}
 	string outtype = "compressed(*.gz)";
 	if(InputParameter.Output_type == 0)
 	{
@@ -399,7 +432,8 @@ int simulate_Illumina_reads(int argc, char *argv[])
 	if(InputParameter.Is_simulate_quality == 1)
 	{
 		Infor_outfile<<"#simulate quality value by Quality-transition mode: "<< Is_qt<<endl
-			<<"#ASCII shift of quality value: "<<InputParameter.Q_shift<<endl;
+			<<"#ASCII shift of quality value: "<<InputParameter.Q_shift<<endl
+			<<"#mode of mask quality: "<<mode_of_Mask<<endl;
 	}
 	Infor_outfile<<endl<<"#read_id\tinsert_size\t-i/-I\tchr\t+/-\tposition\t substitution\tinsertion\tdeletion"<<endl;
 	
@@ -977,6 +1011,14 @@ uint64_t simulate_fq_reads(string &seq,uint64_t seqlen, uint64_t rd_pair, string
   		}
 		}
 		
+		//Mask quality using the EAMSS algorithm
+		if(InputParameter.Mask_quality_mode == 1 || InputParameter.Mask_quality_mode == 2)
+		{
+			casava::demultiplex::MaskQvalsByEamss A;
+			A.operator()(output_quality_seq1, output_read1, InputParameter.Mask_quality_mode, InputParameter.Q_shift);
+			A.operator()(output_quality_seq2, output_read2, InputParameter.Mask_quality_mode, InputParameter.Q_shift);
+		}
+			
 		delete[] Is_insertion_pos1;
 		delete[] Is_insertion_pos2;
 		
