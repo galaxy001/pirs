@@ -8,7 +8,7 @@ test: pirs
 	ls -l test/
 
 clean:
-	-rm test/Illumina_* test/ref22* test/*.out test/*.err
+	-rm test/Illumina_* test/ref22* test/*.out test/*.err test/EAMSS2_*
 
 allclean: clean
 	-rm pirs

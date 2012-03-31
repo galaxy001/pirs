@@ -110,7 +110,7 @@ void SimReads_Usage(){
 	cout<<"\t-q  <int>     simulate quality value, 0:no(fasta), 1:yes(fastq), default:"<<InputParameter.Is_simulate_quality<<endl;
 	cout<<"\t-M  <int>     simulate quality value by Quality-transition mode, 0:no, 1:yes, default:"<<InputParameter.Q_Mode<<endl;
 	cout<<"\t-Q  <int>     ASCII shift of quality value, generally 64 or 33 for Illumina data, default:"<<InputParameter.Q_shift<<endl;
-	cout<<"\t-E  <int>     mask quality values with EAMSS using, 0:no, 1:Quality=2, 2:lowercase Base. default:"<< InputParameter.Mask_quality_mode<<endl;
+	cout<<"\t-E  <int>     mask quality values with EAMSS using, 0:none, 1:Quality=2, 2:lowercase Base. default:"<< InputParameter.Mask_quality_mode<<endl;
 	cout<<"\t-f  <int>     cyclize insert fragment (influence on PE reads' direction) 0: read1-forward read2-reverse, 1: read1-reverse read2-forward, default:"<<InputParameter.Is_cyclization<<endl;
 	cout<<"\t-c  <int>     output file type, 0:text, 1:compressed(*.gz), default:"<<InputParameter.Output_type<<endl;
 	cout<<"\t-o  <string>  prefix of output file, default:"<<InputParameter.Output_prefix<<endl;
