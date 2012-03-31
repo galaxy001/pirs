@@ -100,6 +100,7 @@ Contents
       -q <int>    simulate quality value, 0: no, 1: yes (default=1)
       -M <int>    simulate quality value by Quality-transition mode, 0:no, 1:yes, (default:1)
       -Q <int>    ASCII shift of quality value, generally 64 or 33 for Illumina data, (default:64)
+      -E <int>    mask quality values with EAMSS using, 0:no, 1:Quality=2, 2:lowercase Base, (default:0)
       -f <int>    cyclize insert fragment (influence on PE reads direction) 0:read1-forward, read2-reverse, 
                   1: contrary to parameter 0 (default=0)
       -c <int>    output file type, 0: text, 1: gz compressed (default=1)
@@ -226,9 +227,10 @@ Contents
   in this region will be discarded.
   c) The allowed max length of read depends on the cycle number of profile. User should set read length 
   less than half of cycle number.
-  d) The program parses one chromosome at a time, so dose the output. In diploid mode, each reference file  is sampled 
+  d) When masking quality values, the program using the same EAMSS algorithm from CASAVA v1.8.0 .
+  e) The program parses one chromosome at a time, so dose the output. In diploid mode, each reference file  is sampled 
   with half depth.
-  e) Random-seed in this program is set with system time, so when you need to simulate data in batches,it needs a 
+  f) Random-seed in this program is set with system time, so when you need to simulate data in batches,it needs a 
   interval for each task(such as one second).
   
   For update & support, please refer to http://code.google.com/p/pirs/ .
