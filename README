@@ -97,10 +97,10 @@ Contents
       -v <int>    the standard deviation of insert size (default=5% of average insert size)
       -a <int>    simulate reads InDel-error, 0:no, 1:yes. (default=1)
       -g <int>    simulate GC content-coverage bias, 0: no, 1: yes (default=1)
-      -q <int>    simulate quality value, 0: no, 1: yes (default=1)
+      -q <int>    simulate quality value, 0: no(fasta), 1: yes(fastq) (default=1)
       -M <int>    simulate quality value by Quality-transition mode, 0:no, 1:yes, (default:1)
       -Q <int>    ASCII shift of quality value, generally 64 or 33 for Illumina data, (default:64)
-      -E <int>    mask quality values with EAMSS using, 0:no, 1:Quality=2, 2:lowercase Base, (default:0)
+      -E <int>    mode of read-end masking by EAMSS algorithm, 0:none, 1:Quality=2, 2:lowercase Base, (default:0)
       -f <int>    cyclize insert fragment (influence on PE reads direction) 0:read1-forward, read2-reverse, 
                   1: contrary to parameter 0 (default=0)
       -c <int>    output file type, 0: text, 1: gz compressed (default=1)
@@ -160,16 +160,17 @@ Contents
   b) *.read.info.gz
     
     Column 1: reads ID.
-    Column 2: real insert size.
-    Column 3: "1" represent for this read generates from sequence which is input by option -i, "2" represent 
+    Column 2: "1" represent for this read generates from sequence which is input by option -i, "2" represent 
               for this read generates from the reference sequence which is input by -I; for simulated data of 
-              haploid genome, it will be always "1".
-    Column 4: chromosome sequence ID.
+              haploid genome, it will be always "1".    
+    Column 3: chromosome sequence ID.
+    Column 4: position(1-based) in chromosome.
     Column 5: "+" forward direction; "-" reverse direction.
-    Column 6: position(1-based) in chromosome.
-    Column 7: read-position(1-based) of substitution error and raw base(->)error base.
-    Column 8: read-position(1-based) of insertion error and the base of insertion.
-    Column 9: read-position(1-based) of deletion error and the base of deletion
+    Column 6: real insert size.
+    Column 7: length of read-end masking by EAMSS algorithm.
+    Column 8: read-position(1-based) of substitution error and raw base(->)error base.
+    Column 9: read-position(1-based) of insertion error and the base of insertion.
+    Column 10: read-position(1-based) of deletion error and the base of deletion
 
   c) *_snp.lst
     For example:

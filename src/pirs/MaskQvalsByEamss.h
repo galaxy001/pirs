@@ -33,7 +33,7 @@ public:
 //    void operator()(std::string &qValues,
 //                    const std::string &baseCalls) const;
     void operator()(std::string &qValues,
-                    std::string &baseCalls, int mode, int qShift) const;
+                    std::string &baseCalls, int mode, int qShift, int &maskNum) const;
 private:
     static const int lowScore;
     static const int mediumScore;
@@ -42,6 +42,7 @@ private:
     static const char highThreshold;
     static const int minScore;
     static const std::vector<std::string> motifList;
+//    std::pair<int, int> eamss(const std::string &qValues) const; 	
     std::pair<int, int> eamss(const std::string &qValues, int qShift) const;
     int findStr(const std::string &targetString, const std::string &queryString, int start, int stop) const;
 };

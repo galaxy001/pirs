@@ -110,7 +110,7 @@ void SimReads_Usage(){
 	cout<<"\t-q  <int>     simulate quality value, 0:no(fasta), 1:yes(fastq), default:"<<InputParameter.Is_simulate_quality<<endl;
 	cout<<"\t-M  <int>     simulate quality value by Quality-transition mode, 0:no, 1:yes, default:"<<InputParameter.Q_Mode<<endl;
 	cout<<"\t-Q  <int>     ASCII shift of quality value, generally 64 or 33 for Illumina data, default:"<<InputParameter.Q_shift<<endl;
-	cout<<"\t-E  <int>     mask quality values with EAMSS using, 0:none, 1:Quality=2, 2:lowercase Base. default:"<< InputParameter.Mask_quality_mode<<endl;
+	cout<<"\t-E  <int>     mode of read-end masking by EAMSS algorithm, 0:none, 1:Quality=2, 2:lowercase Base. default:"<< InputParameter.Mask_quality_mode<<endl;
 	cout<<"\t-f  <int>     cyclize insert fragment (influence on PE reads' direction) 0: read1-forward read2-reverse, 1: read1-reverse read2-forward, default:"<<InputParameter.Is_cyclization<<endl;
 	cout<<"\t-c  <int>     output file type, 0:text, 1:compressed(*.gz), default:"<<InputParameter.Output_type<<endl;
 	cout<<"\t-o  <string>  prefix of output file, default:"<<InputParameter.Output_prefix<<endl;
@@ -435,8 +435,8 @@ int simulate_Illumina_reads(int argc, char *argv[])
 			<<"#ASCII shift of quality value: "<<InputParameter.Q_shift<<endl
 			<<"#mode of mask quality: "<<mode_of_Mask<<endl;
 	}
-	Infor_outfile<<endl<<"#read_id\tinsert_size\t-i/-I\tchr\t+/-\tposition\t substitution\tinsertion\tdeletion"<<endl;
-	
+//	Infor_outfile<<endl<<"#read_id\tinsert_size\t-i/-I\tchr\t+/-\tposition\tmask_end_len\tsubstitution\tinsertion\tdeletion"<<endl;
+	Infor_outfile<<endl<<"#readId\t-i/-I\tchr\tposition\t+/-\tinsertSize\tmaskEndLen\tsubstitution\tinsertion\tdeletion"<<endl;
 	
 	///////////////////////////get genome seq and start to simulate reads/////////////////////////////
 	
@@ -1011,12 +1011,14 @@ uint64_t simulate_fq_reads(string &seq,uint64_t seqlen, uint64_t rd_pair, string
   		}
 		}
 		
+		int mask_num1 = 0;
+		int mask_num2 = 0;
 		//Mask quality using the EAMSS algorithm
 		if(InputParameter.Mask_quality_mode == 1 || InputParameter.Mask_quality_mode == 2)
 		{
 			casava::demultiplex::MaskQvalsByEamss A;
-			A.operator()(output_quality_seq1, output_read1, InputParameter.Mask_quality_mode, InputParameter.Q_shift);
-			A.operator()(output_quality_seq2, output_read2, InputParameter.Mask_quality_mode, InputParameter.Q_shift);
+			A.operator()(output_quality_seq1, output_read1, InputParameter.Mask_quality_mode, InputParameter.Q_shift, mask_num1);
+			A.operator()(output_quality_seq2, output_read2, InputParameter.Mask_quality_mode, InputParameter.Q_shift, mask_num2);
 		}
 			
 		delete[] Is_insertion_pos1;
@@ -1030,7 +1032,8 @@ uint64_t simulate_fq_reads(string &seq,uint64_t seqlen, uint64_t rd_pair, string
 		}
 		
 		//read1 information
-		Infor_outfile<<"@read_"<<InputParameter.Insertsize_mean<<"_"<<reads_count+reads_all<<"/"<<1<<"\t"<<insertsize<<"\t"<<i_or_I<<"\t"<<id_seq<<"\t"<<read1_order<<"\t"<<read1_pos<<"\t";
+		//Infor_outfile<<endl<<"#readId\t-i/-I\tchr\tposition\t+/-\tinsertSize\tmaskEndLen\tsubstitution\tinsertion\tdeletion"<<endl;
+		Infor_outfile<<"@read_"<<InputParameter.Insertsize_mean<<"_"<<reads_count+reads_all<<"/"<<1<<"\t"<<i_or_I<<"\t"<<id_seq<<"\t"<<read1_pos<<"\t"<<read1_order<<"\t"<<insertsize<<"\t"<<mask_num1<<"\t";
 		for(int i = 0; i < error_pos1.size(); i++)
 		{
 			Infor_outfile<<error_pos1[i]+1<<","<<raw_base1[i]<<"->"<< output_read1[error_pos1[i]] <<";";
@@ -1098,10 +1101,11 @@ uint64_t simulate_fq_reads(string &seq,uint64_t seqlen, uint64_t rd_pair, string
     		Infor_outfile<<delet_inf;
     	}
   	}
+  	
   	Infor_outfile<<endl;
   	
   	//read2 information
-		Infor_outfile<<"@read_"<<InputParameter.Insertsize_mean<<"_"<<reads_count+reads_all<<"/"<<2<<"\t"<<insertsize<<"\t"<<i_or_I<<"\t"<<id_seq<<"\t"<<read2_order<<"\t"<<read2_pos<<"\t";
+		Infor_outfile<<"@read_"<<InputParameter.Insertsize_mean<<"_"<<reads_count+reads_all<<"/"<<2<<"\t"<<i_or_I<<"\t"<<id_seq<<"\t"<<read2_pos<<"\t"<<read2_order<<"\t"<<insertsize<<"\t"<<mask_num2<<"\t";
 		for(int i = 0; i < error_pos2.size(); i++)
 		{
 			Infor_outfile<<error_pos2[i]+1<<","<<raw_base2[i]<<"->"<< output_read2[error_pos2[i]] <<";";
@@ -1112,7 +1116,7 @@ uint64_t simulate_fq_reads(string &seq,uint64_t seqlen, uint64_t rd_pair, string
 		Infor_outfile<<"\t";
 		
 		if(indel2.size() == 0){
-			Infor_outfile<<"-"<<"\t"<<"-"<<endl;
+			Infor_outfile<<"-"<<"\t"<<"-";
 		}else{
 			string inser_inf;
 			string delet_inf;
@@ -1161,12 +1165,13 @@ uint64_t simulate_fq_reads(string &seq,uint64_t seqlen, uint64_t rd_pair, string
     		Infor_outfile<<inser_inf<<"\t";
     	}
     	if(delet_inf.empty()){
-    		Infor_outfile<<"-"<<endl;
+    		Infor_outfile<<"-";
     	}else{
-    		Infor_outfile<<delet_inf<<endl;
+    		Infor_outfile<<delet_inf;
     	}
   	}
   	
+  	Infor_outfile<<endl;
   	
   	//output reads
 		if(!InputParameter.Output_type){
@@ -1377,7 +1382,8 @@ uint64_t simulate_fa_reads(string &seq,uint64_t seqlen, uint64_t rd_pair, string
 		}
 		
 		//read1 information
-		Infor_outfile<<">read_"<<InputParameter.Insertsize_mean<<"_"<<reads_count+reads_all<<"/"<<1<<"\t"<<insertsize<<"\t"<<i_or_I<<"\t"<<id_seq<<"\t"<<read1_order<<"\t"<<read1_pos<<"\t";
+//		Infor_outfile<<">read_"<<InputParameter.Insertsize_mean<<"_"<<reads_count+reads_all<<"/"<<1<<"\t"<<insertsize<<"\t"<<i_or_I<<"\t"<<id_seq<<"\t"<<read1_order<<"\t"<<read1_pos<<"\t";
+		Infor_outfile<<">read_"<<InputParameter.Insertsize_mean<<"_"<<reads_count+reads_all<<"/"<<1<<"\t"<<i_or_I<<"\t"<<id_seq<<"\t"<<read1_pos<<"\t"<<read1_order<<"\t"<<insertsize<<"\t"<<"-"<<"\t";
 		for(int i = 0; i < error_pos1.size(); i++)
 		{
 			Infor_outfile<<error_pos1[i]+1<<","<<raw_base1[i]<<"->"<< output_read1[error_pos1[i]] <<";";
@@ -1448,7 +1454,8 @@ uint64_t simulate_fa_reads(string &seq,uint64_t seqlen, uint64_t rd_pair, string
   	Infor_outfile<<endl;
   	
   	//read2 information
-		Infor_outfile<<">read_"<<InputParameter.Insertsize_mean<<"_"<<reads_count+reads_all<<"/"<<2<<"\t"<<insertsize<<"\t"<<i_or_I<<"\t"<<id_seq<<"\t"<<read2_order<<"\t"<<read2_pos<<"\t";
+//		Infor_outfile<<">read_"<<InputParameter.Insertsize_mean<<"_"<<reads_count+reads_all<<"/"<<2<<"\t"<<insertsize<<"\t"<<i_or_I<<"\t"<<id_seq<<"\t"<<read2_order<<"\t"<<read2_pos<<"\t";
+		Infor_outfile<<">read_"<<InputParameter.Insertsize_mean<<"_"<<reads_count+reads_all<<"/"<<2<<"\t"<<i_or_I<<"\t"<<id_seq<<"\t"<<read2_pos<<"\t"<<read2_order<<"\t"<<insertsize<<"\t"<<"-"<<"\t";
 		for(int i = 0; i < error_pos2.size(); i++)
 		{
 			Infor_outfile<<error_pos2[i]+1<<","<<raw_base2[i]<<"->"<< output_read2[error_pos2[i]] <<";";
@@ -1459,7 +1466,7 @@ uint64_t simulate_fa_reads(string &seq,uint64_t seqlen, uint64_t rd_pair, string
 		Infor_outfile<<"\t";
 		
 		if(indel2.size() == 0){
-			Infor_outfile<<"-"<<"\t"<<"-"<<endl;
+			Infor_outfile<<"-"<<"\t"<<"-";
 		}else{
 			string inser_inf;
 			string delet_inf;
@@ -1508,11 +1515,12 @@ uint64_t simulate_fa_reads(string &seq,uint64_t seqlen, uint64_t rd_pair, string
     		Infor_outfile<<inser_inf<<"\t";
     	}
     	if(delet_inf.empty()){
-    		Infor_outfile<<"-"<<endl;
+    		Infor_outfile<<"-";
     	}else{
-    		Infor_outfile<<delet_inf<<endl;
+    		Infor_outfile<<delet_inf;
     	}
   	}
+  	Infor_outfile<<endl;
   	
   	//output reads
 		if(!InputParameter.Output_type){
