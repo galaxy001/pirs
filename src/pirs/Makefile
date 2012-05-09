@@ -1,7 +1,13 @@
+ifeq ($(shell uname -s),Darwin)
+CPPFLAGS += -march=core2 -Bstatic -L/opt/local/lib -I/opt/local/include
+else
+CPPFLAGS += -std=c++0x -march=native -static
+endif
+
 all: pirs
 
 pirs: main.cpp simulate_diploid_genome.cpp simulate.cpp gzstream.cpp simulate_Illumina_reads.cpp load_file.cpp MaskQvalsByEamss.cpp
-	g++ -std=c++0x -march=native -mtune=generic -O3 -static -o $@ $^ -lz
+	g++ $(CPPFLAGS) -mtune=generic -O3 -o $@ $^ -lz
 
 test: pirs
 	cd test && sh pirs.sh

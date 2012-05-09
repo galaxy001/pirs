@@ -1,4 +1,4 @@
-#!/bin/env perl
+#!/usr/bin/env perl
 =pod
 Author: Hu Xuesong @ BGI <huxuesong@genomics.org.cn>
 Version: 1.0.0 @ 20110803
