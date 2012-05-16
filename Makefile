@@ -26,12 +26,20 @@ test: all
 	cd ./src/stator/gcContCvgBias && ${MAKE} test
 
 distclean:
-	cd ./src/pirs && ${MAKE} clean
-	cd ./src/stator/gcContCvgBias && ${MAKE} clean
+	cd ./src/pirs && ${MAKE} distclean
+	cd ./src/stator/gcContCvgBias && ${MAKE} distclean
+	-rm pIRS_*.tgz
+
+tDATE := $(shell date +%Y%m%d)
+tTIME := $(shell date +%H%M%S)
+dist: all distclean
+	@echo "Packing pIRS_$(tDATE).tgz ..."
+	@tar -czf /var/tmp/pIRS_$(tDATE)_$(tTIME).tgz --exclude '.git*' .
+	@mv /var/tmp/pIRS_$(tDATE)_$(tTIME).tgz ./pIRS_$(tDATE).tgz
 
 clean: distclean
-	cd ./src/pirs && ${MAKE} allclean
-	cd ./src/stator/gcContCvgBias && ${MAKE} allclean
+	cd ./src/pirs && ${MAKE} clean
+	cd ./src/stator/gcContCvgBias && ${MAKE} clean
 	-rm pirs gc_coverage_bias
 	-@for P in ${PERL_LIST}; do \
 	    rm `basename $${P}`; \
