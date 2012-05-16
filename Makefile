@@ -25,11 +25,11 @@ test: all
 	cd ./src/pirs && ${MAKE} test
 	cd ./src/stator/gcContCvgBias && ${MAKE} test
 
-clean:
+distclean:
 	cd ./src/pirs && ${MAKE} clean
 	cd ./src/stator/gcContCvgBias && ${MAKE} clean
 
-allclean: clean
+clean: distclean
 	cd ./src/pirs && ${MAKE} allclean
 	cd ./src/stator/gcContCvgBias && ${MAKE} allclean
 	-rm pirs gc_coverage_bias

@@ -1,8 +1,22 @@
 ifeq ($(shell uname -s),Darwin)
 CPPFLAGS += -march=core2 -Bstatic -L/opt/local/lib -I/opt/local/include
 else
-CPPFLAGS += -std=c++0x -march=native -static
+CPPFLAGS += -static
 endif
+
+GCC_VERSION := $(shell gcc -dumpversion)
+GCC_MAJOR := $(shell echo $(GCC_VERSION) | cut -d'.' -f1)
+GCC4_VER := $(shell echo $(GCC_VERSION) | cut -d'.' -f2,3)
+
+ifeq ($(GCC_MAJOR),4)
+ifeq ($(shell expr 2.4 \<= $(GCC4_VER)),1)
+CPPFLAGS += -march=native
+endif
+ifeq ($(shell expr 3.6 \<= $(GCC4_VER)),1)
+CPPFLAGS += -std=c++0x
+endif
+endif
+
 
 OBJ = gzstream.o self_util.o main.o stat_soap_coverage.o
 CC = g++
@@ -26,11 +40,11 @@ test: gc_coverage_bias
 	-./gc_coverage_bias_plot.pl test_200.dat
 	ls -l test*
 
-clean: compclean
+distclean: compclean
 	-rm -v test_*
 
 compclean:
 	-rm -v ${OBJ} *.gch
 
-allclean: clean
+clean: distclean
 	-rm gc_coverage_bias
