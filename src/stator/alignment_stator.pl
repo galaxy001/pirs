@@ -74,7 +74,7 @@ $opt_o='./stat' if ! $opt_o;
 die "[x]No input files found !\n" unless @ARGV;
 #die "[!]Max 252 files supported.\n" if @ARGV>252;
 
-print STDERR "From [@ARGV] to [$opt_o]\n";
+print STDERR 'From [',join(',',@ARGV),"] to [$opt_o]\n";
 unless ($opt_b) {print STDERR 'press [Enter] to continue...'; <STDIN>;}
 
 my $start_time = [gettimeofday];
