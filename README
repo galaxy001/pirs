@@ -95,6 +95,8 @@ Contents
       -x <double> sequencing coverage depth (default=5)
       -m <int>    average insert size (default=500)
       -v <int>    the standard deviation of insert size (default=5% of average insert size)
+      -e <double> substitution-error rate, set the average substitution-error rate(0 or 0.0001~0.63) over all cycles,
+                  (default=average substitution-error rate of Base-calling profile)
       -a <int>    simulate reads InDel-error, 0:no, 1:yes. (default=1)
       -g <int>    simulate GC content-coverage bias, 0: no, 1: yes (default=1)
       -q <int>    simulate quality value, 0: no(fasta), 1: yes(fastq) (default=1)
@@ -233,6 +235,8 @@ Contents
   with half depth.
   f) Random-seed in this program is set with system time, so when you need to simulate data in batches,it needs a 
   interval for each task(such as one second).
+  g) Program will shift quality value when substiution-error rate setting by user is different from that in profile. The
+  quality score in output data range from 2 to the maximum score of profile. you can find the real substitution-error rate 
+  of output data in file *.error_rate.distr .
   
   For update & support, please refer to http://code.google.com/p/pirs/ .
- 

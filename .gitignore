@@ -1,6 +1,6 @@
 *.bak
 *.md5
-# Ignore objects and archives.
+._*
 *.[oa]
 *.gch
 *.[0-9]
@@ -17,3 +17,17 @@ baseCalling_Matrix_merger
 alignment_stator
 core
 core.*
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
