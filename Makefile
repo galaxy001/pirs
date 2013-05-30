@@ -44,3 +44,9 @@ clean: distclean
 	-@for P in ${PERL_LIST}; do \
 	    rm `basename $${P}`; \
 	done
+
+.PHONY push:
+	git push github master
+	git push
+	git push google master
+

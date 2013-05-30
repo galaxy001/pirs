@@ -1,0 +1,38 @@
+#summary "miror"-ed repo.
+#labels Phase-Implementation
+
+= Introduction =
+
+Google Code cannot be accessed from China directly with SSL, so mirror sites are created for co-authors.
+
+
+= Details =
+
+List:
+  * Text in *bold* or _italic_
+  * https://github.com/galaxy001/pirs
+  * https://sourceforge.net/projects/pirsim/
+
+CLI:
+  git remote add github git@github.com:galaxy001/pirs.git
+  git push -u github master
+  git remote add sf ssh://galaxy001@git.code.sf.net/p/pirsim/code
+  git push -u sf master
+  git remote add google https://code.google.com/p/pirs/
+
+
+.git/config
+[remote "origin"]
+        fetch = +refs/heads/*:refs/remotes/origin/*
+        url = ssh://galaxy001@git.code.sf.net/p/pirsim/code
+[remote "github"]
+        url = git@github.com:galaxy001/pirs.git
+        fetch = +refs/heads/*:refs/remotes/github/*
+[remote "google"]
+        url = https://code.google.com/p/pirs/
+        fetch = +refs/heads/*:refs/remotes/google/*
+
+[remote "sf"]
+        url = ssh://galaxy001@git.code.sf.net/p/pirsim/code
+        fetch = +refs/heads/*:refs/remotes/sf/*
+
