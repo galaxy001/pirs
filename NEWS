@@ -1,3 +1,10 @@
+version 1.11
+	Fix one bug which lead to terminate called after throwing an instance of 'std::out_of_range' while simulate indel-error on reads with "pirs simulate".
+
+version 1.10
+	Fix one bug which will result in overlapping variation region in program "pirs diploid".
+	Add option -e to simulate different substiution-error rate in program "pirs simulate".
+
 version 1.01
 	Add EAMSS filter from CASAVA v.1.8.0 .
 

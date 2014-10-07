@@ -6,6 +6,11 @@
 
 using namespace std;
 
+const char *PROGRAM = "pirs(Profile-based Illumina pair-end Reads Simulator)";
+const char *AUTHOR  = "Jianying Yuan (BGI-Shenzhen)";
+const char *VERSION = "v1.1.1";                      
+const char *CONTACT = "yuanjianying@genomics.org.cn";
+
 extern int simulate_Illumina_reads(int argc, char *argv[]);
 extern int simulate_diploid_genome(int argc, char *argv[]);
 
@@ -34,10 +39,12 @@ int main(int argc, char *argv[])
 
 static void display_usage()
 {
-	cerr<<"\nProgram: pirs(Profile based Illumina pair-end Reads Simulator)\n";
-	cerr<<"Version: 1.01\n";
-	cerr<<"Author: Jianying Yuan (BGI-Shenzhen)\n";
-	cerr<<"Contact: yuanjianying@genomics.org.cn";
+	cerr<<"\nProgram:\t"<< PROGRAM <<"\n";
+  cerr<<"Version:\t"<<VERSION<<"\n";
+  cerr<<"Author:\t\t"<<AUTHOR<<"\n";
+  cerr<<"Contact: \t"<<CONTACT<<"\n";
+	cerr<<"Compile Date:\t"<<__DATE__<<" time: "<< __TIME__<<"\n";
+
 	cerr<<"\nUsage: pirs <command> [option]\n";
 	cerr<<"    diploid     generate diploid genome.\n";
 	cerr<<"    simulate    simulate Illumina reads.\n\n";

@@ -7,10 +7,12 @@ Contents
 
 1. Dependencies
 ===============
-pIRS requires the following libraries to compile:
+pIRS requires the following libraries(with *-devel packages) to compile:
 
     zlib (http://www.zlib.net/)
     Boost Libraries (http://www.boost.org/)
+    glibc-static
+    libstdc++-static
 
 pIRS requires the following tools to generate and analyse profiles:
 

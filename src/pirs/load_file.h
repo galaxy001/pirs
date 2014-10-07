@@ -19,25 +19,33 @@ void set_and_check_file(PARAMETER InputParameter, igzstream &infile, igzstream &
 	ogzstream &gz_outfile1, ogzstream &gz_outfile2, ofstream &insert_log, ofstream &error_log, ogzstream &infor_outfile);
 	
 //get the attribute of error profile
-void preview_BaseCalling_profile (PARAMETER InputParameter, string exe_path, int &ref_Base_num, int &statistical_Cycle_num, int &seq_Base_num, int &quality_num, double &statistical_average_error_rate);
+void preview_BaseCalling_profile (PARAMETER InputParameter, string exe_path, int &ref_Base_num, int &statistical_Cycle_num, 
+	int &seq_Base_num, int &quality_num, double &statistical_average_error_rate);
 
-//read in quality distribution file and get the quality distribution table.
-string load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num, int seq_Base_num, int quality_num, double statistical_average_error_rate, double*** simulation_matrix);
-
-//read in quality distribution file and get the quality distribution table.
-string load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num, int ref_Base_num, int simulate_Cycle_num, int seq_Base_num, int quality_num, double statistical_average_error_rate, double*** simulation_matrix2);
+//transform quality score according error-rate setting by user.
+void transform_quality_by_error_rate(PARAMETER InputParameter, string exe_path, int *Qval2Qval, int seq_Base_num, 
+	int quality_num, int statistical_Cycle_num);
 	
 //read in quality distribution file and get the quality distribution table.
-string load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num, int seq_Base_num, 
-	int quality_num, double statistical_average_error_rate, double**** simulation_matrix1, double*** First_cycle_matrix);
-	
+string load_BaseCalling_profile1(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num, int seq_Base_num, 
+	int quality_num, double statistical_average_error_rate, double*** simulation_matrix);
+
+//read in quality distribution file and get the quality distribution table.
+string load_BaseCalling_profile2(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num, int seq_Base_num, 
+	int quality_num, double statistical_average_error_rate, double**** simulation_matrix, double*** First_cycle_matrix);
+
+//read in quality distribution file and get the quality distribution table.
+string load_BaseCalling_profile3(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num, int seq_Base_num, 
+	int quality_num, double statistical_average_error_rate, double*** simulation_matrix1, double**** simulation_matrix2);
+		
 string load_GC_depth_profile (PARAMETER InputParameter, string exe_path, double* GC_bias_abundance);
 
 //load InDel-error profile and get the InDel distribution table.
-void preview_InDel_error_profile (PARAMETER InputParameter, string exe_path, int &Statistical_Cycle_num2, int &InDel_max_len, uint64_t &read1_count, uint64_t &read2_count);
+void preview_InDel_error_profile (PARAMETER InputParameter, string exe_path, int &Statistical_Cycle_num2, int &InDel_max_len, 
+	uint64_t &read1_count, uint64_t &read2_count);
 
 //load InDel-error profile and get the InDel distribution table.
-string load_InDel_error_profile(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num2, int InDel_max_len, uint64_t read1_count,
- uint64_t read2_count, int* InDel_num, double** InDel_error_matrix);
+string load_InDel_error_profile(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num2, int InDel_max_len, 
+	uint64_t read1_count, uint64_t read2_count, int* InDel_num, double** InDel_error_matrix);
  
 #endif

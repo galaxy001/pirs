@@ -2,7 +2,8 @@
 #include <vector>
 #include <string>
 #include <fstream>
-#include <math.h>
+#include <cmath>
+#include <stdint.h>
 #include <map>
 #include <boost/algorithm/string.hpp>
 #include "simulate.h"
@@ -22,11 +23,10 @@ string output_prefix = "ref_sequence";
 double snp_bias[3]; //label transition and transvertion ratio
 
 //get raw genome sequence.
-void Get_raw_genome(igzstream &inf, ofstream &snp, ofstream &indel, ofstream &invertion);
+void Get_raw_genome(igzstream &inf, ofstream &snp, ofstream &indel, ofstream &inversion);
 
-//add snp and indel in raw seqence, and output result sequence.
-void simulate_snp_indel_seq(string id_line,string id,string &sequ, ofstream &snp,ofstream &indel, ofstream &invertion);
-
+//output result sequence.
+void output_diploid_seq(string id_line, string id, string sequence);
 
 void SimDiploid_Usage(){
 	cout<<"\nDescription:"<<endl;
@@ -44,7 +44,7 @@ void SimDiploid_Usage(){
 	cout<<"\t-s	<double>	the heterozygous SNP rate of the diploid genome,default:"<<hetersnp_rate<<endl;
 	cout<<"\t-a	<double>	the value of transition divided by transvertion for heterSNP,default:"<<snp_transition_by_transvertion_rate<<endl;
 	cout<<"\t-d	<double>	the InDel rate of the diploid genome,default:"<<heterindel_rate<<endl;
-	cout<<"\t-v	<double>	the structural variation rate(large insertion,deletion,invertion) of the diploid genome,default:"<<big_SV_rate<<endl;
+	cout<<"\t-v	<double>	the structural variation rate(large insertion,deletion,inversion) of the diploid genome,default:"<<big_SV_rate<<endl;
 	cout<<"\t-c	<int>   	ouput file type, 0:text, 1:*.gz, default:"<< output_type <<endl;
 	cout<<"\t-o	<string>	output file prefix default:"<<output_prefix<<endl;
 	cout<<"\t-h	        	output help infomation"<<endl;
@@ -113,14 +113,14 @@ int simulate_diploid_genome(int argc, char *argv[])
 	}
 	string snp_output = output_prefix+"_snp.lst";
 	string indel_output = output_prefix+"_indel.lst";
-	string invertion_output = output_prefix+"_invertion.lst";
+	string inversion_output = output_prefix+"_inversion.lst";
 	if(hetersnp_rate != 0){output_prefix = output_prefix+".snp";}
 	if(heterindel_rate != 0){output_prefix = output_prefix+".indel";}
 	if(big_SV_rate !=0){
 		if(heterindel_rate == 0){
 			output_prefix = output_prefix+".indel";
 		}
-		output_prefix = output_prefix+".invertion";
+		output_prefix = output_prefix+".inversion";
 	}
 		
 	string output_ref_file;
@@ -146,7 +146,7 @@ int simulate_diploid_genome(int argc, char *argv[])
   	}
 	}
 
-	ofstream SNP_File,Indel_File,Ivertion_File;
+	ofstream SNP_File,Indel_File,Inversion_File;
 
 	if(hetersnp_rate>0){
   	SNP_File.open(snp_output.c_str());
@@ -155,6 +155,7 @@ int simulate_diploid_genome(int argc, char *argv[])
   		cerr<<"Error:unable to open output file:"<<snp_output<<endl;
   		exit(-1);
   	}
+  	SNP_File<<"#seq_id\tposition\traw_base\tsnp_base"<<endl;
 	}
 	
 	if(heterindel_rate>0){
@@ -164,6 +165,7 @@ int simulate_diploid_genome(int argc, char *argv[])
   		cerr<<"Error:unable to open output file:"<<indel_output<<endl;
   		exit(-1);
   	}
+  	Indel_File<<"#seq_id\tposition\ttype\tindel_length\tindel_base"<<endl;
 	}
 	
 	if(big_SV_rate>0){
@@ -174,16 +176,18 @@ int simulate_diploid_genome(int argc, char *argv[])
     		cerr<<"Error:unable to open output file:"<<indel_output<<endl;
     		exit(-1);
     	}
+    	Indel_File<<"#seq_id\ttype\tposition\tindel_length\tindel_base"<<endl;
 		}
-  	Ivertion_File.open(invertion_output.c_str());
-  	if(!Ivertion_File)
+  	Inversion_File.open(inversion_output.c_str());
+  	if(!Inversion_File)
   	{
-  		cerr<<"Error:unable to open output file:"<<invertion_output<<endl;
+  		cerr<<"Error:unable to open output file:"<<inversion_output<<endl;
   		exit(-1);
   	}
+  	Inversion_File<<"#seq_id\tposition\tinversion_length"<<endl;
 	}
 	
-	Get_raw_genome(infile,SNP_File,Indel_File,Ivertion_File);
+	Get_raw_genome(infile,SNP_File,Indel_File,Inversion_File);
 	
 	infile.close();
 	
@@ -205,7 +209,7 @@ int simulate_diploid_genome(int argc, char *argv[])
 		if(heterindel_rate == 0){
 			Indel_File.close();
 		}
-  	Ivertion_File.close();
+  	Inversion_File.close();
 	}	
 	
 	time_end = time(NULL);
@@ -215,7 +219,7 @@ int simulate_diploid_genome(int argc, char *argv[])
 }
 
 //get raw genome sequence.
-void Get_raw_genome(igzstream &inf, ofstream &snp_file, ofstream &indel_file, ofstream &invertion_file )
+void Get_raw_genome(igzstream &inf, ofstream &snp_file, ofstream &indel_file, ofstream &inversion_file )
 {
 	string line,id,id_line,seq;
 	while (getline(inf,line,'\n'))
@@ -226,12 +230,12 @@ void Get_raw_genome(igzstream &inf, ofstream &snp_file, ofstream &indel_file, of
 			{	
 				cerr<<"Have finished reading scaffold "<<id<<endl;
 				//start to simulate one scaffold
-				simulate_snp_indel_seq(id_line,id,seq,snp_file,indel_file,invertion_file);
+				string diploid_seq = simulate_diploid_seq(id, seq, snp_file, indel_file, inversion_file, hetersnp_rate, heterindel_rate, big_SV_rate, snp_bias);
+				output_diploid_seq(id_line, id, diploid_seq);
 				seq="";
 			}
 			id_line = line;
 			line.erase(0,1);
-//			id=line;
 			int pos=line.find(" ");
 			line=line.substr(0,pos);
 			id=line;
@@ -241,64 +245,39 @@ void Get_raw_genome(igzstream &inf, ofstream &snp_file, ofstream &indel_file, of
 	}
 	cerr<<"Have finished reading scaffold "<<id<<endl;
 	//start to simulate one scaffold
-	simulate_snp_indel_seq(id_line,id,seq,snp_file,indel_file, invertion_file);
+	string diploid_seq = simulate_diploid_seq(id, seq, snp_file, indel_file, inversion_file, hetersnp_rate, heterindel_rate, big_SV_rate, snp_bias);
+	output_diploid_seq(id_line, id, diploid_seq);
 }
 
-//add snp and indel in raw seqence, and output result sequence.
-void simulate_snp_indel_seq(string id_line,string id,string &sequence, ofstream &snp_file,ofstream &indel_file, ofstream &invertion_file)
+void output_diploid_seq(string id_line, string id, string sequence)
 {
-	//convert lower case to upper case 
-	boost::to_upper(sequence);
-
-	if (hetersnp_rate>0 || heterindel_rate>0 || big_SV_rate>0) //heterozygous SNP and heterozygous indel exists in diploid
-	{
-		if (hetersnp_rate>0)
+	cerr<<"Begin to output result sequence: "<<id<<" ..."<<endl;
+	if(!output_type){
+		outfile<<id_line<<endl;
+		uint64_t seq_len = sequence.size();
+		
+		//50bp base per line
+		uint64_t counter = 0; 
+		while(seq_len > 50)
 		{
-			cerr<<"Begin to simulate snp"<<endl;
-			sequence=Get_snp(sequence,snp_file,id,hetersnp_rate,snp_bias);
-			cerr<<"Have finished simulating snp"<<endl;
+			outfile<<sequence.substr(counter*50,50)<<endl;
+			seq_len -= 50;
+			counter++;
 		}
-		if (big_SV_rate>0)
+		outfile<<sequence.substr(counter*50)<<endl;
+	}else{
+		gz_outfile<<id_line<<endl;
+		uint64_t seq_len = sequence.size();
+
+		uint64_t counter = 0;
+		while(seq_len > 50)
 		{
-			cerr<<"Begin to simulate invertion"<<endl;
-			sequence=Get_invertion(sequence,invertion_file,id,big_SV_rate);
+			gz_outfile<<sequence.substr(counter*50,50)<<endl;
+			seq_len -= 50;
+			counter++;
 		}
-		if (heterindel_rate>0 || big_SV_rate>0)
-		{
-			cerr<<"Begin to simulate indel"<<endl;
-			sequence=Get_genome_indel(sequence,indel_file,id,heterindel_rate,big_SV_rate);
-			cerr<<"Have finished simulating indel"<<endl;
-		}
-
-		if(!output_type){
-			outfile<<id_line<<endl;
-			uint64_t seq_len = sequence.size();
-			
-			//50bp base per line
-			uint64_t counter = 0; 
-			while(seq_len > 50)
-			{
-				outfile<<sequence.substr(counter*50,50)<<endl;
-				seq_len -= 50;
-				counter++;
-			}
-			outfile<<sequence.substr(counter*50)<<endl;
-		}else{
-			gz_outfile<<id_line<<endl;
-			uint64_t seq_len = sequence.size();
-
-			uint64_t counter = 0;
-			while(seq_len > 50)
-			{
-				gz_outfile<<sequence.substr(counter*50,50)<<endl;
-				seq_len -= 50;
-				counter++;
-			}
-			gz_outfile<<sequence.substr(counter*50)<<endl;
-		}
-
-		cerr<<"Have finished simulating "<<id_line<<endl;
+		gz_outfile<<sequence.substr(counter*50)<<endl;
 	}
+	cerr<<"Finished outputing result sequence: "<<id<<endl;
 }
-
 

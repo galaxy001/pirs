@@ -2,7 +2,8 @@
 #include <vector>
 #include <string>
 #include <fstream>
-#include <math.h>
+#include <cmath>
+#include <stdint.h>
 #include <map>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
@@ -23,6 +24,32 @@ char alphabet3[128] =
  4, 0, 4, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 4, 4,
  4, 4, 4, 4, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
 };
+
+double qscore2error(int qscore)
+{
+	double error_rate = pow(10.0, -qscore / 10.0);
+	return error_rate;
+}
+
+void Qscore_cal(double time, int *q2q, int quality_num)
+{
+	for(int i = 0; i < quality_num; i++)
+	{
+		int new_q = int(-10 * log10(qscore2error(i) * time) + 0.5);
+		if(new_q <= 2)
+		{
+			q2q[i] = 2;
+		}
+		else if(new_q >= quality_num - 1)
+		{
+			q2q[i] = quality_num - 1;
+		}
+		else
+		{
+			q2q[i] = new_q;
+		}
+	}
+}
 
 //check and open the outfile file
 void set_and_check_file(PARAMETER InputParameter, igzstream &infile, igzstream &infile2, ofstream &outfile1,	ofstream &outfile2, 
@@ -174,7 +201,7 @@ void preview_BaseCalling_profile (PARAMETER InputParameter, string exe_path, int
         			{
         				string num = lineVec[i * quality_num + j + 2];
         				uint64_t freqnum = boost::lexical_cast<uint64_t>(num);
-    
+    						
         				total_count_sum+=freqnum;
         				if( i == alphabet3[ref_base])  // ACGT  
         				{
@@ -197,6 +224,152 @@ void preview_BaseCalling_profile (PARAMETER InputParameter, string exe_path, int
 	//get BaseCalling profile average error rate
 	statistical_average_error_rate = double(total_error_sum)/double(total_count_sum);
   
+}
+
+//transform quality score according error-rate setting by user.
+void transform_quality_by_error_rate(PARAMETER InputParameter, string exe_path, int *Qval2Qval, int seq_Base_num, int quality_num, int statistical_Cycle_num)
+{
+	if(InputParameter.Error_rate <= pow(10.0, -(quality_num - 1)/10.0))
+	{
+		for(int i = 0; i < quality_num; i++)
+		{
+			Qval2Qval[i] = quality_num - 1; //max quality score = quality_num - 1;
+		}
+		return;
+	}
+	
+	string matrix_file;
+	uint64_t *Qscor_distr = new uint64_t[quality_num]; //number distribution of Quality score 
+	double *Qscore_ratio_distr = new double[quality_num];
+	for(int i = 0; i < quality_num; i++)
+	{
+		Qscor_distr[i] = 0;
+		Qscore_ratio_distr[i] = 0;
+	}
+	
+	if(InputParameter.BaseCalling_profile == ""){
+  	int index = exe_path.find_last_of('/');
+  	if(index == -1){
+  		cerr<<"Error: program path wrong!"<<endl;
+  	}
+  	else{
+  		string directory_path = exe_path.substr(0,index);
+  		matrix_file = directory_path + BASE_CALLING_PROFILE;
+  	}
+	}else{
+		matrix_file = InputParameter.BaseCalling_profile;
+	}
+	
+  igzstream infile;
+  infile.open(matrix_file.c_str());
+  if ( ! infile )
+	{
+		cerr << "fail to open input file" << matrix_file << endl;
+	}
+	uint64_t total_count_sum = 0;
+	uint64_t total_error_sum = 0;
+	uint64_t total_correct_sum = 0;
+
+	string lineStr;
+	bool isEnd = 0;
+	while (getline( infile, lineStr, '\n' ))
+	{ 
+		if(isEnd){break;}
+		if(lineStr == "[DistMatrix]"){
+			while(getline( infile, lineStr, '\n' ))
+			{
+				if(lineStr == "" || lineStr[0] == '#'){continue;}
+				if(lineStr == "<<END"){isEnd = 1; break;}
+				vector<string> lineVec;
+  			boost::split(lineVec,lineStr, boost::is_any_of(" \t\n"), boost::token_compress_on);
+  			
+  			char ref_base = lineVec[0][0];
+  			int current_cycle = atoi(lineVec[1].c_str());
+  				
+  			if(current_cycle <= InputParameter.Read_length || (current_cycle >= statistical_Cycle_num/2 && current_cycle <= statistical_Cycle_num/2+InputParameter.Read_length)){
+      		for(int i = 0; i < seq_Base_num; i++)
+      		{
+      			for(int j = 0; j < quality_num; j++)
+      			{
+      				string num = lineVec[i * quality_num + j + 2];
+      				uint64_t freqnum = boost::lexical_cast<uint64_t>(num);
+  						Qscor_distr[j] += freqnum;
+  						
+      				total_count_sum += freqnum;
+      				if( i == alphabet3[ref_base])  // ACGT  
+      				{
+      					total_correct_sum+=freqnum;
+      				}else{
+      					total_error_sum+=freqnum;
+      				}
+      			}
+      		}
+    		}
+			}
+		}else{
+			continue;
+		}
+		
+	}
+	infile.close();
+	
+	//ratio distribution of Quality score 
+	for(int i = 0; i < quality_num; i++)
+	{
+		Qscore_ratio_distr[i] = double(Qscor_distr[i]) / double(total_count_sum);
+		//cout<<i<<": "<<Qscore_ratio_distr[i]<<endl;
+	}
+	
+	delete[] Qscor_distr;
+	
+	//transform to new quality
+  double min = 0.00015;
+  double max = 6000;
+  double mid = 0;
+  double n = 0;
+  double error_tmp;
+
+	while(1)
+	{
+		mid = (min + max) / 2;
+		error_tmp = 0;
+		Qscore_cal(mid, Qval2Qval, quality_num);
+		
+		for(int k = 0; k < quality_num; k++)
+		{
+			error_tmp += Qscore_ratio_distr[k] * qscore2error(Qval2Qval[k]);
+		}
+		double len = 0;
+		if(error_tmp > InputParameter.Error_rate)
+		{
+			len = max - mid;
+			max = mid;
+		}
+		else if(error_tmp < InputParameter.Error_rate)
+		{
+			len = mid - min;
+			min = mid;
+		}
+		else
+		{
+			break;
+		}
+		
+		if(fabs(InputParameter.Error_rate - error_tmp) < 0.0001 || len < 0.00001)
+		{
+			break;
+		}
+	}
+	n = mid;
+	
+	cout<<"\nShift quality score for simulating substiution-error:"<<endl
+		<<"\traw_qulaity_score\ttransferred_quality_score"<<endl;
+	for(int i = 0; i < quality_num ; i++)
+	{
+		cout<<"\t"<<i<<"\t"<<Qval2Qval[i]<<endl;
+	}
+	
+	delete[] Qscore_ratio_distr;
 }
 
 void preview_InDel_error_profile (PARAMETER InputParameter, string exe_path, int &Statistical_Cycle_num2, int &InDel_max_len, uint64_t &read1_count, uint64_t &read2_count)
@@ -387,15 +560,15 @@ string load_InDel_error_profile(PARAMETER InputParameter, string exe_path, int s
 	double read2_ins_rate = double(read2_ins_num)/double(read2_count*InputParameter.Read_length);
 	double read2_del_rate = double(read2_del_num)/double(read2_count*InputParameter.Read_length);
 	
-  cerr << "\nDimensions of InDel-error profile:\n";
-  cerr << "       profile_Cycle_num: " << statistical_Cycle_num2 << endl;
-  cerr << "       read1 count: " << read1_count << endl;
-  cerr << "       read2 count: " << read2_count << endl;
-  cerr << "       length of max InDel: " << InDel_max_len << endl;
-  cerr << "       insertion-base rate of "<<InputParameter.Read_length << "-bp read1: " << read1_ins_rate << endl;
-  cerr << "       deletion-base rate of "<<InputParameter.Read_length << "-bp read1: " << read1_del_rate << endl;
-  cerr << "       insertion-base rate of "<<InputParameter.Read_length << "-bp read2: " << read2_ins_rate << endl;
-  cerr << "       deletion-base rate of "<<InputParameter.Read_length << "-bp read2: " << read2_del_rate << endl;
+  cout << "\nIn InDel-error profile:\n"
+		<< "\tprofile_Cycle_num: " << statistical_Cycle_num2 << endl
+  	<< "\tread1 count: " << read1_count << endl
+  	<< "\tread2 count: " << read2_count << endl
+  	<< "\tlength of max InDel: " << InDel_max_len << endl
+  	<< "\tinsertion-base rate of "<<InputParameter.Read_length << "-bp read1: " << read1_ins_rate << endl
+  	<< "\tdeletion-base rate of "<<InputParameter.Read_length << "-bp read1: " << read1_del_rate << endl
+  	<< "\tinsertion-base rate of "<<InputParameter.Read_length << "-bp read2: " << read2_ins_rate << endl
+  	<< "\tdeletion-base rate of "<<InputParameter.Read_length << "-bp read2: " << read2_del_rate << endl;
 
 	for(int j=0; j<statistical_Cycle_num2; j++)
 	{
@@ -429,378 +602,8 @@ string load_InDel_error_profile(PARAMETER InputParameter, string exe_path, int s
 }
 
 //read in quality distribution file and get the quality distribution table.
-string load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num, int seq_Base_num, 
+string load_BaseCalling_profile1(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num, int seq_Base_num, 
 	int quality_num, double statistical_average_error_rate, double*** simulation_matrix)
-{
-	string matrix_file;
-	if(InputParameter.BaseCalling_profile == ""){
-  	int index = exe_path.find_last_of('/');
-  	if(index == -1){
-  		cerr<<"Error: program path wrong!"<<endl;
-  	}
-  	else{
-  		string directory_path = exe_path.substr(0,index);
-  		matrix_file = directory_path + BASE_CALLING_PROFILE;
-  	}
-	}else{
-		matrix_file = InputParameter.BaseCalling_profile;
-	}
-
-	igzstream MatrixFile;
-	MatrixFile.open(matrix_file.c_str());
-	if ( ! MatrixFile )
-	{	cerr << "fail to open input file " << matrix_file <<", make sure statistics file place in program directory!"<< endl;
-		exit(-1);
-	}
-	
-	string str_line;
-	cerr <<"Start to construct simulation matrix..."<<endl
-		<<"Loading file: "<<matrix_file<<endl;
-	
-	
-	//user_error_rate/profile_error_rate
-	double E_ratio = 0;
-	if(InputParameter.Error_rate == -1){
-		E_ratio = 1;
-	}else{
-		E_ratio = InputParameter.Error_rate/statistical_average_error_rate;
-	}
-	
-	int simulate_cycle = 0;
-	bool isEnd = 0;
-	while(getline(MatrixFile, str_line, '\n'))
-	{
-		if(isEnd){break;}
-		if(str_line == "[DistMatrix]")
-		{
-			while(getline(MatrixFile, str_line, '\n'))
-			{
-				if(str_line == "" || str_line[0] == '#'){continue;}
-				if(str_line == "<<END"){isEnd = 1; break;}
-    		vector<string> str_line_tokens;
-    		boost::split(str_line_tokens,str_line, boost::is_any_of(" \t\n"), boost::token_compress_on);
-    		char ref_base = str_line_tokens[0][0];
-    		int current_cycle = atoi(str_line_tokens[1].c_str());
-    		
-    		if(current_cycle == 1){simulate_cycle = 0;}
-    		if(current_cycle <= InputParameter.Read_length || (current_cycle > statistical_Cycle_num/2 && current_cycle <= statistical_Cycle_num/2+InputParameter.Read_length))
-    		{
-    			simulate_cycle++;
-      		uint64_t error_sum = 0;
-      		uint64_t count_sum = 0;
-      		uint64_t correct_sum = 0;
-      		//get the error rate of current cycle 
-      		for(int i = 0; i < seq_Base_num; i++)
-      		{
-      			for(int j = 0; j < quality_num; j++)
-      			{
-      				string num = str_line_tokens[i * quality_num + j + 2];
-      				uint64_t current_num = boost::lexical_cast<uint64_t>(num);
-      				count_sum+=current_num;
-      				if( i == alphabet3[ref_base])  // ACGT  
-      				{
-      					correct_sum+=current_num;
-      				}else{
-      					error_sum+=current_num;
-      				}
-      			}
-      		}
-      		double this_cycle_error_rate = double(error_sum)/double(count_sum);
-      		
-      		if(InputParameter.Is_simulate_quality) //for simulating fastq
-      		{
-        		//convert profile error matrix to simulation error matrix
-        		for(int i = 0; i < seq_Base_num; i++)
-        		{
-        			for(int j = 0; j < quality_num; j++)
-        			{
-        				string num = str_line_tokens[i * quality_num + j + 2];
-        				uint64_t current_num = boost::lexical_cast<uint64_t>(num);
-        				count_sum+=current_num;
-        				if( i == alphabet3[ref_base])  // ACGT  
-        				{
-        					//the correct call base number : current_num*(1-this_cycle_error_rate*E/e)/(1-this_cycle_error_rate)
-        					simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i*quality_num+j] = current_num*(1-this_cycle_error_rate*E_ratio)/(1-this_cycle_error_rate);
-        					//cerr<<simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i*quality_num+j]<<" ";
-        				}else{
-        					//the error call base number: current_num*E_ratio
-        					simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i*quality_num+j] = current_num*E_ratio;
-        					//cerr<<simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i*quality_num+j]<<" ";
-        				}
-        			}
-        		}
-    //    		cerr << endl;
-        
-        		//the cumulative rate
-        		double sum = 0;
-        		for(int i = 0; i < seq_Base_num*quality_num; i++)
-        		{
-        			sum += simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i];
-        		}
-        		//cerr<<sum<<endl;
-        		if(sum == 0){
-        			for(int i = 0; i < seq_Base_num*quality_num; i++)
-        			{
-        				simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i] = 0;
-        			}	
-        		}else{
-        			double accumulate_value = 0;
-        			for(int i = 0; i < seq_Base_num*quality_num; i++)
-        			{
-        				accumulate_value += simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i];
-        				simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i] = accumulate_value/sum;
-    //    				cerr << simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i] <<" ";
-        			}	
-        		}
-      		}else{
-      			//for simulating fasta
-        		//convert profile error matrix to simulation error matrix
-        		for(int i = 0; i < seq_Base_num; i++)
-        		{
-        			for(int j = 0; j < quality_num; j++)
-        			{
-        				string num = str_line_tokens[i * quality_num + j + 2];
-        				uint64_t current_num = boost::lexical_cast<uint64_t>(num);
-        				count_sum+=current_num;
-        				if( i == alphabet3[ref_base])  // ACGT  
-        				{
-        					//the correct call base number : current_num*(1-this_cycle_error_rate*E/e)/(1-this_cycle_error_rate)
-        					simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i] += current_num*(1-this_cycle_error_rate*E_ratio)/(1-this_cycle_error_rate);
-        					//cerr<<simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i*quality_num+j]<<" ";
-        				}else{
-        					//the error call base number: current_num*E_ratio
-        					simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i] += current_num*E_ratio;
-        					//cerr<<simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i*quality_num+j]<<" ";
-        				}
-        			}
-        		}
-       		  //cerr << endl;
-        
-        		//the cumulative rate
-        		double sum = 0;
-        		for(int i = 0; i < seq_Base_num; i++)
-        		{
-        			sum += simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i];
-        		}
-        		//cerr<<sum<<endl;
-        		if(sum == 0){
-        			for(int i = 0; i < seq_Base_num; i++)
-        			{
-        				simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i] = 0;
-        			}	
-        		}else{
-        			double accumulate_value = 0;
-        			for(int i = 0; i < seq_Base_num; i++)
-        			{
-        				accumulate_value += simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i];
-        				simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i] = accumulate_value/sum;
-        				//cerr<<simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i]<<" ";
-        			}	
-        		}
-      		}
-    		}
-			}
-		}else{
-			continue;
-		}
-	}
-	
-  MatrixFile.close();
-  cerr <<"Have finished constructing Base-calling simulation matrix1"<<endl;
-  return matrix_file;
-}
-
-//read in quality distribution file and get the quality distribution table.
-string load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num, int seq_Base_num, 
-	int quality_num, double statistical_average_error_rate, double**** simulation_matrix1, double*** First_cycle_matrix)
-{
-	string matrix_file;
-	if(InputParameter.BaseCalling_profile == ""){
-  	int index = exe_path.find_last_of('/');
-  	if(index == -1){
-  		cerr<<"Error: program path wrong!"<<endl;
-  	}
-  	else{
-  		string directory_path = exe_path.substr(0,index);
-  		matrix_file = directory_path + BASE_CALLING_PROFILE;
-  	}
-	}else{
-		matrix_file = InputParameter.BaseCalling_profile;
-	}
-
-	igzstream MatrixFile;
-	MatrixFile.open(matrix_file.c_str());
-	if ( ! MatrixFile )
-	{	cerr << "fail to open input file " << matrix_file <<", make sure statistics file place in program directory!"<< endl;
-		exit(-1);
-	}
-	
-	string str_line;
-	cerr <<"Start to construct simulation matrix..."<<endl
-		<<"Loading file: "<<matrix_file<<endl;
-	
-	
-	//user_error_rate/profile_error_rate
-	double E_ratio = 0;
-	if(InputParameter.Error_rate == -1){
-		E_ratio = 1;
-	}else{
-		E_ratio = InputParameter.Error_rate/statistical_average_error_rate;
-	}
-	
-	int simulate_cycle = 0;
-	bool isEnd = 0;
-	while(getline(MatrixFile, str_line, '\n'))
-	{
-		if(isEnd){break;}
-		if(str_line == "[DistMatrix]")
-		{
-			while(getline(MatrixFile, str_line, '\n'))
-			{
-				if(str_line == "" || str_line[0] == '#'){continue;}
-				if(str_line == "<<END"){isEnd = 1; break;}
-    		vector<string> str_line_tokens;
-    		boost::split(str_line_tokens,str_line, boost::is_any_of(" \t\n"), boost::token_compress_on);
-    		char ref_base = str_line_tokens[0][0];
-    		int current_cycle = atoi(str_line_tokens[1].c_str());
-    		
-    		if(current_cycle == 1){simulate_cycle = 0;}
-    		if(current_cycle <= InputParameter.Read_length || (current_cycle > statistical_Cycle_num/2 && current_cycle <= statistical_Cycle_num/2+InputParameter.Read_length))
-    		{
-    			simulate_cycle++;
-      		uint64_t error_sum = 0;
-      		uint64_t count_sum = 0;
-      		uint64_t correct_sum = 0;
-      		//get the error rate of current cycle 
-      		for(int i = 0; i < seq_Base_num; i++)
-      		{
-      			for(int j = 0; j < quality_num; j++)
-      			{
-      				string num = str_line_tokens[i * quality_num + j + 2];
-      				uint64_t current_num = boost::lexical_cast<uint64_t>(num);
-      				count_sum+=current_num;
-      				if( i == alphabet3[ref_base])  // ACGT  
-      				{
-      					correct_sum+=current_num;
-      				}else{
-      					error_sum+=current_num;
-      				}
-      			}
-      		}
-      		double this_cycle_error_rate = double(error_sum)/double(count_sum);
-      		
-        	//convert profile error matrix to simulation error matrix
-      		for(int i = 0; i < seq_Base_num; i++)
-      		{
-      			for(int j = 0; j < quality_num; j++)
-      			{
-      				string num = str_line_tokens[i * quality_num + j + 2];
-      				uint64_t current_num = boost::lexical_cast<uint64_t>(num);
-      				count_sum+=current_num;
-      				if( i == alphabet3[ref_base])  // ACGT  
-      				{
-      					simulation_matrix1[alphabet3[ref_base]][simulate_cycle-1][j][i] = current_num;
-      					if(simulate_cycle == 1){
-      						First_cycle_matrix[alphabet3[ref_base]][0][i * quality_num + j] =  current_num;
-      					}
-      					if(simulate_cycle == statistical_Cycle_num/2 + 1){
-      						First_cycle_matrix[alphabet3[ref_base]][1][i * quality_num + j] =  current_num;
-      					}
-      				}else{
-      					simulation_matrix1[alphabet3[ref_base]][simulate_cycle-1][j][i] = current_num;
-      					if(simulate_cycle == 1){
-      						First_cycle_matrix[alphabet3[ref_base]][0][i * quality_num + j] =  current_num;
-      					}
-      					if(simulate_cycle == statistical_Cycle_num/2 + 1){
-      						First_cycle_matrix[alphabet3[ref_base]][1][i * quality_num + j] =  current_num;
-      					}
-      				}
-      			}
-      		}
-        
-        		//the cumulative rate
-        		//the cumulative rate
-        		if(simulate_cycle == 1){
-          		double sum = 0;
-          		for(int i = 0; i < seq_Base_num*quality_num; i++)
-          		{
-          				sum += First_cycle_matrix[alphabet3[ref_base]][0][i];
-          		}
-          		//cerr<<sum<<endl;
-          		if(sum == 0){
-          			for(int i = 0; i < seq_Base_num*quality_num; i++)
-          			{
-          				First_cycle_matrix[alphabet3[ref_base]][0][i] = 0;
-          			}	
-          		}else{
-          			double accumulate_value = 0;
-          			for(int i = 0; i < seq_Base_num*quality_num; i++)
-          			{
-          				accumulate_value += First_cycle_matrix[alphabet3[ref_base]][0][i];
-          				First_cycle_matrix[alphabet3[ref_base]][0][i] = accumulate_value/sum;
-          			}	
-          		}
-        		}else if(simulate_cycle == statistical_Cycle_num/2 + 1)
-        		{
-          		double sum = 0;
-          		for(int i = 0; i < seq_Base_num*quality_num; i++)
-          		{
-          				sum += First_cycle_matrix[alphabet3[ref_base]][1][i];
-          		}
-          		//cerr<<sum<<endl;
-          		if(sum == 0){
-          			for(int i = 0; i < seq_Base_num*quality_num; i++)
-          			{
-          				First_cycle_matrix[alphabet3[ref_base]][1][i] = 0;
-          			}	
-          		}else{
-          			double accumulate_value = 0;
-          			for(int i = 0; i < seq_Base_num*quality_num; i++)
-          			{
-          				accumulate_value += First_cycle_matrix[alphabet3[ref_base]][1][i];
-          				First_cycle_matrix[alphabet3[ref_base]][1][i] = accumulate_value/sum;
-          			}	
-          		}
-        		}
-        		
-        		for(int i = 0; i < quality_num; i++)
-        		{
-        			double sum = 0;
-          		for(int j = 0; j < seq_Base_num; j++)
-          		{
-          			sum += simulation_matrix1[alphabet3[ref_base]][simulate_cycle-1][i][j];
-          		}
-          		if(sum == 0){
-          			for(int j = 0; j < seq_Base_num; j++)
-          			{
-          				simulation_matrix1[alphabet3[ref_base]][simulate_cycle-1][i][j] = 0;
-          			}	
-          		}else{
-          			double accumulate_value = 0;
-          			for(int j = 0; j < seq_Base_num; j++)
-          			{
-          				accumulate_value += simulation_matrix1[alphabet3[ref_base]][simulate_cycle-1][i][j];
-          				simulation_matrix1[alphabet3[ref_base]][simulate_cycle-1][i][j] = accumulate_value/sum;
-          			}	
-          		}
-        		}
-    		}
-			}
-		}else{
-			continue;
-		}
-	}
-  
-  MatrixFile.close();
-  
-  cerr <<"Have finished constructing Base-calling simulation matrix1"<<endl;
-  
-  return matrix_file;
-}
-
-//read in quality distribution file and get the quality distribution table.
-string load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num, int ref_Base_num, int simulate_Cycle_num, int seq_Base_num, 
-	int quality_num, double statistical_average_error_rate, double*** simulation_matrix2)
 {
 	string matrix_file;
 	if(InputParameter.BaseCalling_profile == ""){
@@ -867,7 +670,7 @@ string load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int s
     				string num = str_line_tokens[j + 2];
     				uint64_t current_num = boost::lexical_cast<uint64_t>(num);
 
-						simulation_matrix2[simulate_cycle-1][pre_Q][j] += current_num;
+						simulation_matrix[simulate_cycle-1][pre_Q][j] += current_num;
 					}
     		}
 			}
@@ -876,7 +679,7 @@ string load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int s
 		}
 	}
 
-	for(int j=0; j<simulate_Cycle_num; j++)
+	for(int j=0; j<InputParameter.Read_length * 2; j++)
 	{
 		for(int k=0; k<quality_num; k++)
 		{
@@ -884,19 +687,19 @@ string load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int s
   		double sum = 0;
   		for(int l = 0; l < quality_num; l++)
   		{
-  			sum += simulation_matrix2[j][k][l];
+  			sum += simulation_matrix[j][k][l];
   		}
   		if(sum == 0){
   			for(int l = 0; l < quality_num; l++)
   			{
-  				simulation_matrix2[j][k][l] = 0;
+  				simulation_matrix[j][k][l] = 0;
   			}	
   		}else{
   			double accumulate_value = 0;
   			for(int l = 0; l < quality_num; l++)
   			{
-  				accumulate_value += simulation_matrix2[j][k][l];
-  				simulation_matrix2[j][k][l] = accumulate_value/sum;
+  				accumulate_value += simulation_matrix[j][k][l];
+  				simulation_matrix[j][k][l] = accumulate_value/sum;
   			}
   			
   		}
@@ -905,8 +708,322 @@ string load_BaseCalling_profile(PARAMETER InputParameter, string exe_path, int s
   
   MatrixFile.close();
   
+  cerr <<"Have finished constructing Base-calling simulation matrix1"<<endl;
+  
+  return matrix_file;
+}
+
+//read in quality distribution file and get the quality distribution table.
+string load_BaseCalling_profile2(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num, int seq_Base_num, 
+	int quality_num, double statistical_average_error_rate, double**** simulation_matrix, double*** First_cycle_matrix)
+{
+	string matrix_file;
+	if(InputParameter.BaseCalling_profile == ""){
+  	int index = exe_path.find_last_of('/');
+  	if(index == -1){
+  		cerr<<"Error: program path wrong!"<<endl;
+  	}
+  	else{
+  		string directory_path = exe_path.substr(0,index);
+  		matrix_file = directory_path + BASE_CALLING_PROFILE;
+  	}
+	}else{
+		matrix_file = InputParameter.BaseCalling_profile;
+	}
+
+	igzstream MatrixFile;
+	MatrixFile.open(matrix_file.c_str());
+	if ( ! MatrixFile )
+	{	cerr << "fail to open input file " << matrix_file <<", make sure statistics file place in program directory!"<< endl;
+		exit(-1);
+	}
+	
+	string str_line;
+	cerr <<"Start to construct simulation matrix..."<<endl
+		<<"Loading file: "<<matrix_file<<endl;
+	
+	
+	//user_error_rate/profile_error_rate
+	double E_ratio = 0;
+	if(InputParameter.Error_rate == -1){
+		E_ratio = 1;
+	}else{
+		E_ratio = InputParameter.Error_rate/statistical_average_error_rate;
+	}
+	
+	int simulate_cycle = 0;
+	bool isEnd = 0;
+	while(getline(MatrixFile, str_line, '\n'))
+	{
+		if(isEnd){break;}
+		if(str_line == "[DistMatrix]")
+		{
+			while(getline(MatrixFile, str_line, '\n'))
+			{
+				if(str_line == "" || str_line[0] == '#'){continue;}
+				if(str_line == "<<END"){isEnd = 1; break;}
+    		vector<string> str_line_tokens;
+    		boost::split(str_line_tokens,str_line, boost::is_any_of(" \t\n"), boost::token_compress_on);
+    		char ref_base = str_line_tokens[0][0];
+    		int current_cycle = atoi(str_line_tokens[1].c_str());
+    		
+    		if(current_cycle == 1){simulate_cycle = 0;}
+    		if(current_cycle <= InputParameter.Read_length || (current_cycle > statistical_Cycle_num/2 && current_cycle <= statistical_Cycle_num/2+InputParameter.Read_length))
+    		{
+    			simulate_cycle++;
+
+        	//convert profile error matrix to simulation error matrix
+      		for(int i = 0; i < quality_num; i++)
+      		{
+      			uint64_t count_sum = 0;
+      			
+      			for(int j = 0; j < seq_Base_num; j++)
+      			{
+      				string num = str_line_tokens[j * quality_num + i + 2];
+      				uint64_t current_num = boost::lexical_cast<uint64_t>(num);
+      				count_sum+=current_num;
+      				
+      				if( j == alphabet3[ref_base])  // ACGT  
+      				{
+      					simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i][j] = current_num;
+
+      					if(simulate_cycle == 1){
+      						First_cycle_matrix[alphabet3[ref_base]][0][j * quality_num + i] =  current_num;
+      					}
+      					if(simulate_cycle == statistical_Cycle_num/2 + 1){
+      						First_cycle_matrix[alphabet3[ref_base]][1][j * quality_num + i] =  current_num;
+      					}
+      				}else{
+      					simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i][j] = current_num;
+
+      					if(simulate_cycle == 1){
+      						First_cycle_matrix[alphabet3[ref_base]][0][j * quality_num + i] =  current_num;
+      					}
+      					if(simulate_cycle == statistical_Cycle_num/2 + 1){
+      						First_cycle_matrix[alphabet3[ref_base]][1][j * quality_num + i] =  current_num;
+      					}
+      				}
+      			}
+      		}
+        
+      		//the cumulative rate
+      		if(simulate_cycle == 1){
+        		double sum = 0;
+        		for(int i = 0; i < seq_Base_num*quality_num; i++)
+        		{
+        				sum += First_cycle_matrix[alphabet3[ref_base]][0][i];
+        		}
+        		//cerr<<sum<<endl;
+        		if(sum == 0){
+        			for(int i = 0; i < seq_Base_num*quality_num; i++)
+        			{
+        				First_cycle_matrix[alphabet3[ref_base]][0][i] = 0;
+        			}	
+        		}else{
+        			double accumulate_value = 0;
+        			for(int i = 0; i < seq_Base_num*quality_num; i++)
+        			{
+        				accumulate_value += First_cycle_matrix[alphabet3[ref_base]][0][i];
+        				First_cycle_matrix[alphabet3[ref_base]][0][i] = accumulate_value/sum;
+        			}	
+        		}
+      		}else if(simulate_cycle == statistical_Cycle_num/2 + 1)
+      		{
+        		double sum = 0;
+        		for(int i = 0; i < seq_Base_num*quality_num; i++)
+        		{
+        				sum += First_cycle_matrix[alphabet3[ref_base]][1][i];
+        		}
+        		//cerr<<sum<<endl;
+        		if(sum == 0){
+        			for(int i = 0; i < seq_Base_num*quality_num; i++)
+        			{
+        				First_cycle_matrix[alphabet3[ref_base]][1][i] = 0;
+        			}	
+        		}else{
+        			double accumulate_value = 0;
+        			for(int i = 0; i < seq_Base_num*quality_num; i++)
+        			{
+        				accumulate_value += First_cycle_matrix[alphabet3[ref_base]][1][i];
+        				First_cycle_matrix[alphabet3[ref_base]][1][i] = accumulate_value/sum;
+        			}	
+        		}
+      		}
+      		
+      		for(int i = 0; i < quality_num; i++)
+      		{
+      			double sum = 0;
+        		for(int j = 0; j < seq_Base_num; j++)
+        		{
+        			sum += simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i][j];
+        		}
+        		if(sum == 0){
+        			for(int j = 0; j < seq_Base_num; j++)
+        			{
+        				simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i][j] = 0;
+        			}	
+        		}else{
+        			double accumulate_value = 0;
+        			for(int j = 0; j < seq_Base_num; j++)
+        			{
+        				accumulate_value += simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i][j];
+        				simulation_matrix[alphabet3[ref_base]][simulate_cycle-1][i][j] = accumulate_value/sum;
+        			}	
+        		}
+      		}
+    		}
+			}
+		}else{
+			continue;
+		}
+	}
+  
+  MatrixFile.close();
+  
   cerr <<"Have finished constructing Base-calling simulation matrix2"<<endl;
   
+  return matrix_file;
+}
+
+//read in quality distribution file and get the quality distribution table.
+string load_BaseCalling_profile3(PARAMETER InputParameter, string exe_path, int statistical_Cycle_num, int seq_Base_num, 
+	int quality_num, double statistical_average_error_rate, double*** simulation_matrix1, double**** simulation_matrix2)
+{
+	string matrix_file;
+	if(InputParameter.BaseCalling_profile == ""){
+  	int index = exe_path.find_last_of('/');
+  	if(index == -1){
+  		cerr<<"Error: program path wrong!"<<endl;
+  	}
+  	else{
+  		string directory_path = exe_path.substr(0,index);
+  		matrix_file = directory_path + BASE_CALLING_PROFILE;
+  	}
+	}else{
+		matrix_file = InputParameter.BaseCalling_profile;
+	}
+
+	igzstream MatrixFile;
+	MatrixFile.open(matrix_file.c_str());
+	if ( ! MatrixFile )
+	{	cerr << "fail to open input file " << matrix_file <<", make sure statistics file place in program directory!"<< endl;
+		exit(-1);
+	}
+	
+	string str_line;
+	cerr <<"Start to construct simulation matrix..."<<endl
+		<<"Loading file: "<<matrix_file<<endl;
+	
+	
+	//user_error_rate/profile_error_rate
+	double E_ratio = 0;
+	if(InputParameter.Error_rate == -1){
+		E_ratio = 1;
+	}else{
+		E_ratio = InputParameter.Error_rate/statistical_average_error_rate;
+	}
+	
+	int simulate_cycle = 0;
+	bool isEnd = 0;
+	while(getline(MatrixFile, str_line, '\n'))
+	{
+		if(isEnd){break;}
+		if(str_line == "[DistMatrix]")
+		{
+			while(getline(MatrixFile, str_line, '\n'))
+			{
+				if(str_line == "" || str_line[0] == '#'){continue;}
+				if(str_line == "<<END"){isEnd = 1; break;}
+    		vector<string> str_line_tokens;
+    		boost::split(str_line_tokens,str_line, boost::is_any_of(" \t\n"), boost::token_compress_on);
+    		char ref_base = str_line_tokens[0][0];
+    		int current_cycle = atoi(str_line_tokens[1].c_str());
+    		
+    		if(current_cycle == 1){simulate_cycle = 0;}
+    		if(current_cycle <= InputParameter.Read_length || (current_cycle > statistical_Cycle_num/2 && current_cycle <= statistical_Cycle_num/2+InputParameter.Read_length))
+    		{
+    			simulate_cycle++;
+    			uint64_t count_sum = 0;
+    			
+      		//convert profile error matrix to simulation error matrix
+      		for(int i = 0; i < seq_Base_num; i++)
+      		{
+      			for(int j = 0; j < quality_num; j++)
+      			{
+      				string num = str_line_tokens[i * quality_num + j + 2];
+      				uint64_t current_num = boost::lexical_cast<uint64_t>(num);
+      				count_sum+=current_num;
+							simulation_matrix1[alphabet3[ref_base]][simulate_cycle-1][j] += current_num;
+							simulation_matrix2[alphabet3[ref_base]][simulate_cycle-1][j][i] += current_num;
+      			}
+      		}
+      		
+      		//convert profile error matrix to simulation error matrix
+      		for(int i = 0; i < quality_num; i++)
+      		{
+      			for(int j = 0; j < seq_Base_num; j++)
+      			{
+      				string num = str_line_tokens[j * quality_num + i + 2];
+      				uint64_t current_num = boost::lexical_cast<uint64_t>(num);
+      				count_sum+=current_num;
+							simulation_matrix1[alphabet3[ref_base]][simulate_cycle-1][i] += current_num;
+							simulation_matrix2[alphabet3[ref_base]][simulate_cycle-1][i][j] = current_num;
+      			}
+      		}
+      		
+      		//the cumulative rate
+      		double sum = 0;
+      		for(int i = 0; i < quality_num; i++)
+      		{
+      			sum += simulation_matrix1[alphabet3[ref_base]][simulate_cycle-1][i];
+      		}
+      		//cerr<<sum<<endl;
+      		if(sum == 0){
+      			for(int i = 0; i < quality_num; i++)
+      			{
+      				simulation_matrix1[alphabet3[ref_base]][simulate_cycle-1][i] = 0;
+      			}	
+      		}else{
+      			double accumulate_value = 0;
+      			for(int i = 0; i < quality_num; i++)
+      			{
+      				accumulate_value += simulation_matrix1[alphabet3[ref_base]][simulate_cycle-1][i];
+      				simulation_matrix1[alphabet3[ref_base]][simulate_cycle-1][i] = accumulate_value/sum;
+      			}	
+      		}
+      		
+      		//the cumulative rate
+      		
+      		for(int i = 0; i < quality_num; i++)
+      		{
+      			double sum = 0;
+        		for(int j = 0; j < seq_Base_num; j++)
+        		{
+        			sum += simulation_matrix2[alphabet3[ref_base]][simulate_cycle-1][i][j];
+        		}
+        		if(sum == 0){
+        			for(int j = 0; j < seq_Base_num; j++)
+        			{
+        				simulation_matrix2[alphabet3[ref_base]][simulate_cycle-1][i][j] = 0;
+        			}	
+        		}else{
+        			double accumulate_value = 0;
+        			for(int j = 0; j < seq_Base_num; j++)
+        			{
+        				accumulate_value += simulation_matrix2[alphabet3[ref_base]][simulate_cycle-1][i][j];
+        				simulation_matrix2[alphabet3[ref_base]][simulate_cycle-1][i][j] = accumulate_value/sum;
+        			}	
+        		}
+      		}
+    		}
+			}
+		}else{
+			continue;
+		}
+	}
+	
+  MatrixFile.close();
+  cerr <<"Have finished constructing Base-calling simulation matrix"<<endl;
   return matrix_file;
 }
 
@@ -992,10 +1109,11 @@ string load_GC_depth_profile (PARAMETER InputParameter, string exe_path, double*
   	GC_bias_abundance[i] = depth_vec[depth_vec.size()-1]/max_depth;
   }
   
-  
+  cout<<"\nFor simulating GC bias:"<<endl
+  	<<"\tGC%\tabundance"<<endl;
   for(int i = 0; i <=100; i++)
   {
-  	cerr<<"GC%:"<<i<<"\t"<<GC_bias_abundance[i]<<endl;
+  	cout<<"\t"<<i<<"\t"<<GC_bias_abundance[i]<<endl;
   }
   
   infile.close();

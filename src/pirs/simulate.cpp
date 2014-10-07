@@ -2,7 +2,8 @@
 #include <vector>
 #include <string>
 #include <fstream>
-#include <math.h>
+#include <cmath>
+#include <stdint.h>
 #include <map>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
@@ -60,8 +61,7 @@ int check_seq (string &seq)
 	return is_good;
 }
 
-
-//Rrealization of snp
+//get snp base
 char get_snp_match(char base, double snp_bias[]){
 	char bases[4][3]={{'G','T','C'},  //A->G transition  A->C/T transvertion
 			 {'C','G','A'},  	//T->C transition  T->G/A transvertion
@@ -72,11 +72,11 @@ char get_snp_match(char base, double snp_bias[]){
 	char n='N';
 	switch (base)
 	{
-	case 'A': a=0;break;
-	case 'T': a=1;break;
-	case 'C': a=2;break;
-	case 'G': a=3;break;
-	default: return n;
+  	case 'A': a=0;break;
+  	case 'T': a=1;break;
+  	case 'C': a=2;break;
+  	case 'G': a=3;break;
+  	default: return n;
 	}
 	
 	double num = double(rand())/double(RAND_MAX);
@@ -88,91 +88,6 @@ char get_snp_match(char base, double snp_bias[]){
 	}
 	return bases[a][i];
 	
-}
-
-//Produce heterozygous SNPs in multiploid
-string Get_snp(string &seq,ofstream &snp,string id, double hetersnp_rate, double snp_bias[]){
-	map<uint64_t,string> snp_lst;
-	uint64_t seq_len=seq.size();
-	uint64_t N = 1000000000000;//the max random value 
-	uint64_t snp_num = 0;
-	for(uint64_t seq_index = 0; seq_index < seq_len; seq_index++)
-	{
-		if(seq[seq_index] == 'N'){continue;}
-		double random_num = (double)rand() / double(RAND_MAX);
-		if(random_num <= hetersnp_rate)
-		{
-			string ss = boost::lexical_cast <std::string>(seq[seq_index]) + "\t";
-			//get snp base
-			seq[seq_index]=get_snp_match(seq[seq_index], snp_bias);
-			ss += boost::lexical_cast <std::string>(seq[seq_index]);
-			//put into list file
-			snp_lst[seq_index+1] = ss;
-			snp_num++;
-		}
-	}
-
-//	snp<<id<<" total SNP number: "<<snp_num<<endl;
-	map<uint64_t, string>::const_iterator map_it = snp_lst.begin();
-	while (map_it != snp_lst.end())
-	{
-		snp<<id<<"\t"<<map_it->first<<"\t"<<map_it->second<<endl;
-		map_it++;
-	}
-	
-	return seq;
-}
-
-string Get_invertion(string &seq, ofstream &invertion_file, string id, double SV_rate)
-{
-	uint64_t N = 1000000000000; //the max random value
-	uint64_t seq_len=seq.size();
-	double invertion_rate =  SV_rate/3;
-//	cerr<< invertion_rate <<endl;
-	int invertion_len[5] = {100, 200, 500, 1000, 2000};
-	double array[5] = {0.70, 0.90, 0.97, 0.99, 1.0};
-	map<uint64_t,int> invertion_lst;
-	uint64_t invertion_num = 0;
-	for(uint64_t seq_index = 0; seq_index < seq_len; seq_index++)
-	{
-		double random_num = (double)rand() / double(RAND_MAX);
-		if(random_num <= invertion_rate)
-		{
-//			cerr << random_num<<endl;
-			double random_num2 = (double)rand() / double(RAND_MAX);
-//			cerr << random_num2<<endl;
-			int j = 0;
-			for(j=0; j<5; j++)
-			{
-				if(random_num2 <= array[j])
-				{
-					break;
-				}
-			}
-			if(seq_index+invertion_len[j]>seq_len){continue;}
-  		string sub_seq = seq.substr(seq_index,invertion_len[j]);
-  		if(!check_seq(sub_seq)){continue;} //contain 'N' or other nonbases char
-  		string rc_sub_seq = reversecomplementary(sub_seq);
-
-			for(int i = 0; i < rc_sub_seq.size(); i++)
-			{
-				seq[seq_index+i] =  rc_sub_seq[i];
-			}
-			
-  		invertion_lst[seq_index] = invertion_len[j];
-  		invertion_num++;
-		}
-	}
-
-//	invertion_file<<id<<" total invertion number: "<<invertion_num<<endl;
-	map<uint64_t, int>::const_iterator map_it = invertion_lst.begin();
-	while (map_it != invertion_lst.end())
-	{
-		invertion_file<<id<<"\t"<<map_it->first<<"\t"<<map_it->second<<endl;
-		map_it++;
-	}
-	
-	return seq;
 }
 
 //Getting insert sequence when heterozygous indel rate is bigger than 0
@@ -187,33 +102,63 @@ string get_insertion(int num){
 	return s;
 }
 
-//Produce heterozygous indels in multiploid
-string Get_genome_indel(string &seq,ofstream &indel,string id1,double heterindel_rate,double SV_rate){
-	uint64_t seq_len=seq.size();
-	uint64_t N = 1000000000000; //the max random value 
+//string get_diploid_seq(string raw_seq, string id, ofstream &indel_info, ofstream &snp_info, ofstream &inversion_info, double hetersnp_rate, double heterindel_rate, double SV_rate, double snp_bias[])
+string simulate_diploid_seq(string id,string raw_seq, ofstream &snp_info, ofstream &indel_info, ofstream &inversion_info, 
+	double hetersnp_rate, double heterindel_rate, double SV_rate, double snp_bias[])
+{
+	//convert lower case to upper case 
+	boost::to_upper(raw_seq);
 	
-	double small_insertion_rate = heterindel_rate/2;
-	double samll_deletion_rate = heterindel_rate/2;
-	//use the empirical distribution(1~6) from panda re-sequencing data
-	int small_indel_len[6] = {1,2,3,4,5,6};
-//	double array1[6] = {0.6482, 0.1717, 0.0720, 0.0729, 0.0218, 0.0134};
+	cerr<< "Begin to simulate diploid sequence..."<<endl;
+	
+	//probability distribution
+	//small insertion and deletion share half of total heterindel_rate
+	double small_insertion_rate = heterindel_rate/2.0;
+	double samll_deletion_rate = heterindel_rate/2.0;
+	//insertion,deletion and inversion share one third of total SV respectively
+	double sv_insertion_rate = SV_rate/3.0;
+	double sv_deletion_rate = SV_rate/3.0;
+	double sv_inversion_rate =  SV_rate/3.0;	
+	
+	//indel-length 1(64.82%), 2(17.17%), 3(7.2%), 4(7.29%), 5(2.18%), 6(1.34%)
+	int indel_len[6] = {1,2,3,4,5,6};
 	double array1[6] = {0.6482, 0.8199, 0.8919, 0.9648, 0.9866, 1};
 	
-	double large_insertion_rate = SV_rate/3;
-	double large_deletion_rate = SV_rate/3;
-	//insertion,deletion and inversion share one third of total SV respectively
 	//SV-length 100(70%),200(20%),500(7%),1000(2%),2000(1%)
-	int large_indel_len[5] = {100, 200, 500, 1000, 2000};
-//	double array2[5] = {0.70, 0.20, 0.07, 0.02, 0.01};
+	int sv_len[5] = {100, 200, 500, 1000, 2000};
 	double array2[5] = {0.70, 0.90, 0.97, 0.99, 1};
 	
-	map<uint64_t,string> indel_lst;
-	//simulate small deletion
-	uint64_t small_deletion_count = 0;
-	for(uint64_t seq_index = 0; seq_index < seq_len; seq_index++)
+	//stat-counter
+	uint64_t snp_num = 0, small_insert_time = 0, small_insert_num = 0, small_delet_time = 0, 
+		small_delet_num = 0, sv_insert_time = 0, sv_insert_num = 0, sv_delet_time = 0, sv_delet_num = 0,
+		sv_invert_time = 0, sv_invert_num = 0;
+	
+	string diploid_seq;
+	
+	uint64_t seq_len = raw_seq.size();
+	
+	//start to simulate diploid sequence
+	//simulation order: SNP -> small-deletion -> small-insertion -> SV-deltion -> SV-insertion -> SV-inversion
+	for(uint64_t raw_seq_index = 0, diploid_seq_index = 0; raw_seq_index < seq_len; diploid_seq_index++, raw_seq_index++)
 	{
+		//////////////////simulate snp//////////////////
 		double random_num = (double)rand() / double(RAND_MAX);
-		if(random_num <= samll_deletion_rate)
+		if(random_num < hetersnp_rate && raw_seq[raw_seq_index] != 'N')
+		{
+			//get snp base
+			diploid_seq += get_snp_match(raw_seq[raw_seq_index], snp_bias);
+			
+			snp_num++;
+			uint64_t pos = raw_seq_index + 1;
+			snp_info << id << "\t" << pos << "\t" << raw_seq[raw_seq_index] << "\t" << diploid_seq[diploid_seq_index] <<endl;
+			
+		}else{
+			diploid_seq += raw_seq[raw_seq_index];
+		}
+	
+		//////////////////simulate deletion//////////////////
+		random_num = (double)rand() / double(RAND_MAX);
+		if(random_num < samll_deletion_rate)
 		{
 			double random_num2 = (double)rand() / double(RAND_MAX);
 			int i = 0;
@@ -224,133 +169,161 @@ string Get_genome_indel(string &seq,ofstream &indel,string id1,double heterindel
 					break;
 				}
 			}
-			if(seq_index+small_indel_len[i]>seq_len){continue;}
-			string sub_str = seq.substr(seq_index, small_indel_len[i]);
-			if(!check_seq(sub_str)){continue;}
-			small_deletion_count++;
-			string ss = "-\t" + boost::lexical_cast <std::string>(small_indel_len[i]) + "\t";
-			
-			for (int k=0;k<small_indel_len[i];k++)
+			if(raw_seq_index + indel_len[i] <= seq_len - 1)
 			{
-				ss += seq[seq_index+k];
-//					indel<<seq[seq_index+k];
-				seq[seq_index+k]='D';
-			}
-			indel_lst[seq_index] = ss;
-		}
-	}
-	
-	//simulate large deletion
-	uint64_t large_deletion_count = 0;
-	for(uint64_t seq_index = 0; seq_index < seq_len; seq_index++)
-	{
-		double random_num = (double)rand() / double(RAND_MAX);
-		if(random_num <= large_deletion_rate)
-		{
-			double random_num2 = (double)rand() / double(RAND_MAX);
-			int i = 0;
-			for(i = 0; i < 5; i++)
-			{
-				if(random_num2 <= array2[i])
-				{
-					break;
-				}
-			}
-			if(seq_index+large_indel_len[i]>seq_len){continue;}
-			string sub_str = seq.substr(seq_index, large_indel_len[i]);
-			if(!check_seq(sub_str)){continue;}
-			large_deletion_count++;
-			string ss = "-\t" + boost::lexical_cast <std::string>(large_indel_len[i]) + "\t";
-			
-			for (int k=0;k<large_indel_len[i];k++)
-			{
-				ss += seq[seq_index+k];
-//					indel<<seq[seq_index+k];
-				seq[seq_index+k]='D';
-			}
-			indel_lst[seq_index] = ss;
-		}
-	}
-	
-	vector<short> insert(seq_len);
-	string s;
-	//simulate small insertion
-	uint64_t small_insertion_count = 0;
-	for(uint64_t seq_index = 0; seq_index < seq_len; seq_index++)
-	{
-		double random_num = (double)rand() / double(RAND_MAX);
-		if(random_num <= small_insertion_rate)
-		{
-			double random_num2 = (double)rand() / double(RAND_MAX);
-			int i = 0;
-			for(i = 0; i < 6; i++)
-			{
-				if(random_num2 <= array1[i]){break;}	
-			}
-			insert[seq_index] = small_indel_len[i];
-			small_insertion_count++;
-		}
-	}
-	//simulate large insertion
-	uint64_t large_insertion_count = 0;
-	for(uint64_t seq_index = 0; seq_index < seq_len; seq_index++)
-	{
-		double random_num = (double)rand() / double(RAND_MAX);
-		if(random_num <= large_insertion_rate)
-		{
-			double random_num2 = (double)rand() / double(RAND_MAX);
-			int i = 0;
-			for(i = 0; i < 5; i++)
-			{
-				if(random_num2 <= array2[i]){break;}	
-			}
-			insert[seq_index] = large_indel_len[i];
-			large_insertion_count++;
-		}
-	}
-	//modify the seq
-	uint64_t total_insertion_count = 0;
-	for (uint64_t i=0;i<seq_len;i++)
-	{
-		if (insert[i]>=1)
-		{
-			total_insertion_count++;
-			string temp;
-			temp=get_insertion(insert[i]);
-			s+=temp;
-			string ss = "+\t" + boost::lexical_cast <std::string>(int(insert[i])) + "\t" + temp;
-			
-			//判断该位点是否有deletion
-			if(indel_lst[i][0] == 0)
-			{
-				indel_lst[i] = ss;
-			}else{
-				indel_lst[i] += "\n" + id1 + "\t" + boost::lexical_cast <std::string>(i) + "\t" + ss;
-			}
-//			indel<<id1<<"\t"<<i+1<<"\t+\t"<<int(insert[i])<<"\t"<<temp<<endl;
-			if (seq[i]!='D')
-			{
-				s+=seq[i];
+  			string sub_str = raw_seq.substr(raw_seq_index + 1, indel_len[i]);
+  			if(check_seq(sub_str))  //check whether contain 'N' or other nonbases char
+  			{ 
+    			string del_seq;
+    			for (int k = 1; k <= indel_len[i]; k++)
+    			{
+    				del_seq += raw_seq[raw_seq_index+k];
+    			}
+    			indel_info << id << "\t" << raw_seq_index + 1 << "\t-\t" << indel_len[i] << "\t" << del_seq <<endl;
+    			raw_seq_index += indel_len[i];
+    			small_delet_time++;
+    			small_delet_num += indel_len[i];
+  			}
 			}
 		}else{
-			if (seq[i]!='D')
-			{
-				s+=seq[i];
-			}
+			//////////////////simulate insertion//////////////////
+			random_num = (double)rand() / double(RAND_MAX);
+  		if(random_num < small_insertion_rate) 
+  		{
+  			double random_num2 = (double)rand() / double(RAND_MAX);
+  			int i = 0;
+  			for(i = 0; i < 6; i++)
+  			{
+  				if(random_num2 <= array1[i]){break;}	
+  			}
+  			string insert_seq = get_insertion(indel_len[i]);
+  			
+  			indel_info << id << "\t" << raw_seq_index + 1 << "\t+\t" << indel_len[i] << "\t" << insert_seq <<endl;
+  			diploid_seq += insert_seq;
+  			diploid_seq_index += indel_len[i];
+
+  			small_insert_time++;
+  			small_insert_num += indel_len[i];
+  		}else{
+  			//////////////////simulate sv-deletion//////////////////
+  			random_num = (double)rand() / double(RAND_MAX);
+        if(random_num < sv_deletion_rate) 
+        {
+          double random_num2 = (double)rand() / double(RAND_MAX);
+          int i = 0;
+          for(i = 0; i < 5; i++)
+          {
+          	if(random_num2 <= array2[i])
+          	{
+          		break;
+          	}
+       		}
+          if(raw_seq_index + sv_len[i] <= seq_len - 1 )
+          {
+            string sub_str = raw_seq.substr(raw_seq_index + 1, sv_len[i]);
+            if(check_seq(sub_str)) //check whether contain 'N' or other nonbases char
+            {
+        			string del_seq;
+        			for (int k = 1; k <= sv_len[i]; k++)
+        			{
+        				del_seq += raw_seq[raw_seq_index+k];
+        			}
+        			indel_info << id << "\t" << raw_seq_index + 1 << "\t-\t" << sv_len[i] << "\t" << del_seq <<endl;
+        			raw_seq_index += sv_len[i];
+        			sv_delet_time++;
+        			sv_delet_num += sv_len[i];
+          	}
+        	}
+        }else{
+        	//////////////////simulate sv-insertion//////////////////
+  				random_num = (double)rand() / double(RAND_MAX);
+      		if(random_num < sv_insertion_rate)
+      		{
+      			double random_num2 = (double)rand() / double(RAND_MAX);
+      			int i = 0;
+      			for(i = 0; i < 5; i++)
+      			{
+      				if(random_num2 <= array2[i]){break;}	
+      			}
+      			string insert_seq = get_insertion(sv_len[i]);
+      			
+      			indel_info << id << "\t" << raw_seq_index + 1 << "\t+\t" << sv_len[i] << "\t" << insert_seq <<endl;
+      			diploid_seq += insert_seq;
+      			diploid_seq_index += sv_len[i];
+      			sv_insert_time++;
+      			sv_insert_num += sv_len[i];
+      		}else{
+      			//////////////////simulate sv-inversion//////////////////
+        		random_num = (double)rand() / double(RAND_MAX);
+        		if(random_num < sv_inversion_rate)
+        		{
+        			double random_num2 = (double)rand() / double(RAND_MAX);
+        			int j = 0;
+        			for(j=0; j<5; j++)
+        			{
+        				if(random_num2 <= array2[j])
+        				{
+        					break;
+        				}
+        			}
+        			if(raw_seq_index+sv_len[j] <= seq_len - 1)
+        			{
+            		string sub_seq = raw_seq.substr(raw_seq_index + 1, sv_len[j]);
+            		if(check_seq(sub_seq)) //check whether contain 'N' or other nonbases char
+            		{ 
+            			inversion_info << id << "\t" << raw_seq_index + 1 << "\t" << sv_len[j] <<endl;
+              		string rc_sub_seq = reversecomplementary(sub_seq);
+
+            			diploid_seq += rc_sub_seq;
+            			diploid_seq_index += sv_len[j];
+            			raw_seq_index += sv_len[j];
+        
+              		sv_invert_time++;
+              		sv_invert_num += sv_len[j];
+            		}
+          		}
+        		}
+      		}
+        }
+  		}
 		}
 	}
-
-//	indel <<"#small deletion times: "<<small_deletion_count << "; large deletion times: "<<large_deletion_count<<"; small insertion times: "<<small_insertion_count<<"; large insertion times: "<<large_insertion_count<<endl;
-	map<uint64_t, string>::const_iterator map_it = indel_lst.begin();
-	while (map_it != indel_lst.end())
-	{
-		indel<<id1<<"\t"<<map_it->first<<"\t"<<map_it->second<<endl;
-		map_it++;
-	}
 	
-	return s;
+	cout<<"\n*************heterozygosis table for seq: "<<id<<"*************"<<endl
+		<<"raw_seq_length\tnew_seq_length"<<endl
+		<<uint64_t(raw_seq.size())<<"\t"<<uint64_t(diploid_seq.size())<<endl
+		<<"heterSNP & heterINDEL:"<<endl
+		<<"total_snp_num\tdeletion_time\ttotal_deletion_length\tinsertion_time\ttotal_insertion_length"<<endl
+		<<snp_num<<"\t"<<small_delet_time<<"\t"<<small_delet_num<<"\t"<<small_insert_time<<"\t"<<small_insert_num<<endl
+		<<"structural variation:"<<endl
+		<<"deletion_time\ttotal_deletion_length\tinsertion_time\ttotal_insertion_length\tinversion_time\ttotal_inversion_length"<<endl
+		<<sv_delet_time<<"\t"<<sv_delet_num<<"\t"<<sv_insert_time<<"\t"<<sv_insert_num<<"\t"<<sv_invert_time<<"\t"<<sv_invert_num<<endl;
+
+	cerr<<"Have finished simulating seq: "<<id<<endl;
+	
+	return diploid_seq;
+	
 }
 
+char get_base_by_Qscore(char ref_base, int qscore)
+{
+	double error_rate = pow(10.0, -qscore/10.0);
+	double random_num = (double)rand() / double(RAND_MAX);
+	char base[]={'A','T','G','C'};
+	if(random_num < error_rate)
+	{
+		while(1)
+		{
+  		int index=int(rand()%4);
+  		if(base[index] != ref_base)
+  		{
+  			return base[index];
+  		}
+  	}
+	}else{
+		return ref_base;
+	}
+}
 
 //Binary search the random number location
 int search_location(double *Arr, uint64_t ArrNum, double random_num){
