@@ -45,6 +45,9 @@ pirs: $(SOURCES)
 dpirs: $(SOURCES)
 	g++ $(WARNFLAGS) $(CPPFLAGS) $(OLevel) -g -DWITH_DEBUG -o $@ $^ $(LDFLAGS)
 
+hmap:
+	g++ -M -MM *.cpp
+
 test: pirs
 	cd test && sh pirs.sh
 	ls -l test/
@@ -55,4 +58,4 @@ distclean:
 clean: distclean
 	-rm pirs dpirs
 
-.PHONY: distclean clean test dpirs
+.PHONY: distclean clean test dpirs hmap
