@@ -1,3 +1,138 @@
+version 2.0
+
+Program rewritten.
+
+These changes are not listed in any particular order and do not include every
+single change made.  Note: the format of the profile files is unchanged; the new
+pIRS can read the same profile files as the old one.  Also, few changes were
+made to the actual simulation algorithms.  (However, one algorithmic change was
+made in how the GC content bias works; it now uses the full fragment to compute
+GC content.)
+
+- `pirs simulate' can now be compiled as a multi-threaded program.  I've
+  observed speedup of 17x compared to the old version when running on a
+  server-class computer.  However, compared to the new version without
+  multi-threading support, the speedup is less because the new version is faster
+  than the old version even if only 1 thread is used.  The exact speedup will
+  depend on the computer used and the simulation parameters and inputs.  Every
+  simulated read pair needs to pass through the thread running
+  read_info_writer_thread_proc(), so this may be the bottleneck in the
+  mulithreaded version; however, this is definitely not the bottleneck in the
+  serial version, since it takes a long time to do the base calling to generate
+  substitution errors and quality values.
+
+- The random number generator now uses a 64-bit Mersenne twister algorithm.
+  This may reduce bias when doing large simulations.  For example, if you are
+  simulating reads from a 100 megabase sequence, you don't want to use 32-bit
+  random numbers because some numbers would (for example) be 21 mod 100000000
+  and other numbers would be 20 mod 100000000; you really want every position to
+  be equally probable.  There are 2 versions of the 64-bit Mersenne twister
+  code: the normal version, and the SSE2-accelerated version.  Both are written
+  by the inventor of the algorithm.  By default, the SSE2-accelerated version is
+  used; to use the normal version, provide the --disable-sse2 option to the
+  configure script.
+
+- Long command line options are now supported for both pirs simulate and pirs
+  diploid.  Some options were renamed, or changed from requiring an argument to
+  being a boolean option.  There are some new options, such as --quiet,
+  --no-logs, and --random-seed.  Command line usage information is improved.
+  The "-i" and "-I" options were removed; instead you should directly supply the
+  reference sequences on the command line as non-option arguments.  `pirs
+  simulate' will simulate reads from all reference sequences specified.  By
+  default, reads are taken at full coverage from all sequences, so if you are
+  simulating a diploid sequence, you must use half coverage, or else provide the
+  --diploid option.  To help avoid confusion, this is noted in the program help,
+  and a notice is printed if there were 2 input sequences but --diploid was not
+  provided.
+
+- The old version required the `pirs' binary to be invoked with an absolute
+  path, which is annoying and nonstandard.  Instead, the new version installs
+  the profiles to $pkgdatadir, and these paths are hard-coded into the binary.
+  In other words, just run `./configure && make install' (optionally specifying
+  --prefix for configure), and pIRS will find its profiles in the installed
+  location.
+
+- The default output format is now text; use -c gzip or --output-file-type=gzip
+  to write gzip files.  I think it makes more sense to have the default be text.
+
+- GC content bias is now based on the full fragment.  This may be more accurate.
+  See: "Summarizing and correcting the GC content bias in high-throughput
+  sequencing",
+  http://nar.oxfordjournals.org/content/early/2012/02/08/nar.gks001.long
+
+- Cumulative probability arrays that previously were using doubles are now using
+  64-bit unsigned integers.  This avoids the need to convert random numbers to
+  doubles before using them, and it also increases the accuracy since we can use
+  2**64 different random values instead of just the doubles between 0.0 and 1.0.
+
+- BaseCallingProfile, IndelProfile, and GCBiasProfile classes have been added to
+  avoid cluttering the main code.  For example, we call a base with the
+  BaseCallingProfile::call_base() function.  To decide whether to accept an
+  insert based on GC content, simply call GCBiasProfile::accept_insert().
+
+- Code duplication has been reduced.  Instead of copying code to simulate
+  base-calling for each of the two reads, we simply use the same functions with
+  slightly different parameters.  Similarly, instead of copying the code to
+  output a read two times (one for each read), we just have an output_read()
+  function that is called for both reads.
+
+- pirs diploid now uses one random number to determine the heterozygosity type
+  at a base, so it doesn't need to generate multiple random numbers per base.
+
+- Code in pirs diploid has been de-duplicated; for example there is a function
+  to try doing an indel that is called 4 times.
+
+- pirs diploid now logs both the original position and the new position for
+  SNPs, since they may differ because of indels.
+
+- More information (such as the time and program command line) is logged to the
+  beginning of each of the log files.  Some of the parameters echo echoed to
+  standard output.
+
+- `configure' script now supports conditionally omitting support for either
+  `pirs simulate' or `pirs diploid' if desired.  By default, both are supported.
+
+- InputStream and OutputStream classes were added that automatically handle
+  compressed and uncompressed files, and they always exit with an error message
+  if a read or write error occurs.
+
+- Some inefficient data structures and unnecessary allocation and deallocation
+  of C++ objects have been removed from the inner simulation loop.  I had
+  originally changed the code to use a lot of C arrays, but then I introduced
+  the `struct Read', which contains some std::vector's.  That's fine, since the
+  `struct Read's are re-used and we don't have to waste time allocating and
+  deleting memory in the inner loop.
+
+- There is now no dependency on Boost.  Strings are tokenized with strtok().
+  (Yes, strtok() is not reentrant, but only one thread is loading the profiles.)
+
+- Code duplication in the matrix loading has been reduced.  There is a
+  for_line_in_matrix() function that calls a function with each line of the
+  specified matrix in a file (such as "[DistMatrix]").
+
+- Matrix allocation and deletion code has been de-duplicated; call the
+  new_matrix() and delete_matrix() functions to allocate and delete
+  multi-dimensional matrices.
+
+- The Qval2Qval array is now a temporary array constructed during the loading of
+  the base-calling profile; it is not kept around because the DistMatrix is
+  modified to take the new quality value distribution into account.
+
+- For the non-quality-transition mode, there are no longer separate matrices for
+  looking up the quality score, then looking up the sequence base given that
+  quality score.  Instead, there is just one matrix where we lookup both the
+  quality score and sequence base, given the cycle number and reference base.
+  This was made possible partly by incorporating the Qval2Qval array into the
+  matrix and not keeping it around.
+
+- search_location() has a simplified implementation for arrays of 64-bit
+  unsigned integers.  It's guaranteed that the last element of the arrays is
+  0xffffffffffffffff, so we can never not find a random number in the arrays.
+
+- INSTALL, README, NEWS, and AUTHORS updated.  I just inserted the new program
+  help into the Usage section in the README, although maybe the user should be
+  re-directed to run the program help option instead.
+
 version 1.11
 	Fix one bug which lead to terminate called after throwing an instance of 'std::out_of_range' while simulate indel-error on reads with "pirs simulate".
 

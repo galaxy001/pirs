@@ -19,14 +19,36 @@
  ** \author Come Raczy
  **/
 
-#include <boost/assign.hpp>
+// Modified for pIRS: Use vectors instead fo strings; also got rid of the boost
+// header.
 
+#include <string>
+#include <vector>
+#include <string.h>
+#include <assert.h>
+
+using std::string;
+using std::vector;
+using std::min;
+using std::max;
 #include "MaskQvalsByEamss.h"
 
 namespace casava
 {
 namespace demultiplex
 {
+
+const char *get_quality_mask_mode_name(enum QualityMaskMode mode) 
+{
+	switch (mode) {
+	case MODE_QUALITY:
+		return "quality";
+	case MODE_LOWERCASE:
+		return "lowercase";
+	default:
+		return "None";
+	}
+}
 
 const int MaskQvalsByEamss::lowScore = 1;
 const int MaskQvalsByEamss::mediumScore = 0;
@@ -41,85 +63,67 @@ const std::vector<std::string> MaskQvalsByEamss::motifList = std::vector<std::st
 /**
  ** \brief Mask quality using the EAMSS algorithm
  **/
-//void MaskQvalsByEamss::operator()(std::string &qValues,
-//                                  const std::string &baseCalls) const
-void MaskQvalsByEamss::operator()(std::string &qValues,
-                                  std::string &baseCalls, int mode, int qShift, int &maskNum) const
+int MaskQvalsByEamss::operator()(vector<char> &qValues,
+				 vector<char> &baseCalls,
+				 enum QualityMaskMode mode) const
 {
-    std::pair<int, int> tmp = eamss(qValues, qShift);
-    const int score = tmp.first;
-    int position = tmp.second;
-    const bool filterRead = (score >= minScore);
-    if (!filterRead)
-    {
-        return;
-    }
-    // look for troublemaker motifs
-    int extendedPosition = position;
-    for (std::vector<std::string>::const_iterator motif = motifList.begin(); motifList.end() != motif; ++motif)
-    {
-        const int troublemakerPosition = findStr(baseCalls, *motif,
-                                                 std::max(0, position - 15),
-                                                 std::min(static_cast<int>(baseCalls.length()), position));
-        if (-1 < troublemakerPosition)
-        {
-            extendedPosition = std::min(extendedPosition, troublemakerPosition);
-        }
-    }
-    position = std::min(position, extendedPosition);
-    // look for extended run of polyG, with at least 90% G bases
-    unsigned int numG = 0;
-    unsigned int numBases = 0;
-    bool maskPolyG = false;
-    int maskStart = position;
-    for (int curPos = position; 0 <= curPos; --curPos)
-    {
-        if ('G' == baseCalls[curPos])
-        {
-            ++numG;
-        }
-        ++numBases;
-        if (10 > numBases)
-        {
-            continue;
-        }
-        const float gFrac = static_cast<float>(numG)/static_cast<float>(numBases);
-        if (gFrac >= 0.9f && 'G' == baseCalls[curPos]) // only start masking at G
-        {
-            maskPolyG = true;
-            maskStart = curPos;
-        }
-        else if (gFrac < 0.9f)
-        {
-            break;
-        }
-    }
-    if (maskPolyG)
-    {
-        position = maskStart;
-    }
-    
-//    for (int idx = position; static_cast<long int>(qValues.length()) > idx; ++idx)
-//    {
-//        qValues[idx] = 'B';
-//    }
-		maskNum = 0;
-		
-    if (mode == 1)
-    {
-    	for (int idx = position; static_cast<long int>(qValues.length()) > idx; ++idx)
-    	{
-     	   qValues[idx] = 2 + qShift; //to 'B' or '#'
-     	   maskNum++;
-   		}
-    }else{
-    	for (int idx = position; static_cast<long int>(baseCalls.length()) > idx; ++idx)
-    	{
-     	   baseCalls[idx] = baseCalls[idx] + 32; //to lowercase
-     	   maskNum++;
-   		}
-    }
-    
+	std::pair<int, int> tmp = eamss(qValues);
+	const int score = tmp.first;
+	int position = tmp.second;
+
+	if (score < minScore)
+		return 0;
+
+	// look for troublemaker motifs
+	int extendedPosition = position;
+	std::vector<std::string>::const_iterator motif;
+	for (motif = motifList.begin(); motifList.end() != motif; ++motif) {
+		const int troublemakerPosition = findStr(&baseCalls[0], *motif,
+							 max(0, position - 15),
+							 min(baseCalls.size(), (size_t)position));
+		if (troublemakerPosition != -1)
+			extendedPosition = min(extendedPosition, troublemakerPosition);
+	}
+	position = min(position, extendedPosition);
+
+	// look for extended run of polyG, with at least 90% G bases
+	unsigned int numG = 0;
+	unsigned int numBases = 0;
+	bool maskPolyG = false;
+	int maskStart = position;
+	for (int curPos = position; 0 <= curPos; --curPos) {
+		if ('G' == baseCalls[curPos])
+			++numG;
+
+		if (++numBases < 10)
+			continue;
+		const float gFrac = static_cast<float>(numG)/static_cast<float>(numBases);
+		if (gFrac >= 0.9f && 'G' == baseCalls[curPos]) {
+			// only start masking at G
+			maskPolyG = true;
+			maskStart = curPos;
+		}
+		else if (gFrac < 0.9f)
+			break;
+	}
+	if (maskPolyG)
+		position = maskStart;
+	
+	switch (mode) {
+	case MODE_QUALITY:
+		for (size_t idx = position; idx < baseCalls.size(); ++idx)
+			qValues[idx] = 2; // will become 'B' or '#'
+		break;
+	case MODE_LOWERCASE:
+		for (size_t idx = position; idx < baseCalls.size(); ++idx)
+			baseCalls[idx] += ('a' - 'A'); // to lowercase
+		break;
+	default:
+		assert(0);
+	}
+
+	return baseCalls.size() - position;
+	
 }
 
 /**
@@ -128,43 +132,37 @@ void MaskQvalsByEamss::operator()(std::string &qValues,
  ** \return the pair (bestScore, bestPosition) or (highScore-1, -1) if qValues
  ** is empty
  **/
-//std::pair<int, int> MaskQvalsByEamss::eamss(const std::string &qValues) const
-std::pair<int, int> MaskQvalsByEamss::eamss(const std::string &qValues, int qShift) const
+std::pair<int, int> MaskQvalsByEamss::eamss(const vector<char>& qValues) const
 {
-    int curScore = 0;
-    // initialize the bestscore to something lower than the first value of curScore
-    int bestScore = std::min(std::min(highScore, mediumScore), lowScore) - 1;
-    int bestPosition = -1;
-    for (int idx = qValues.length() - 1; 0 <= idx; --idx)
-    {
-//    		if (qValues[idx] >= highThreshold)
-        if (qValues[idx] >= highThreshold + qShift)
-        {
-            curScore += highScore;
-        }
-//        else if (qValues[idx] >= mediumThreshold)
-        else if (qValues[idx] >= mediumThreshold + qShift)
-        {
-            curScore += mediumScore;
-        }
-        else
-        {
-            curScore += lowScore;
-        }
-        if (curScore >= bestScore)
-        {
-            bestScore = curScore;
-            bestPosition = idx;
-        }
-    }
-    return std::pair<int, int>(bestScore, bestPosition);
+	int curScore = 0;
+	// initialize the bestscore to something lower than the first value of curScore
+	int bestScore = min(min(highScore, mediumScore), lowScore) - 1;
+	int bestPosition = -1;
+	for (int idx = qValues.size() - 1; 0 <= idx; --idx) {
+		if (qValues[idx] >= highThreshold)
+			curScore += highScore;
+		else if (qValues[idx] >= mediumThreshold)
+			curScore += mediumScore;
+		else
+			curScore += lowScore;
+		if (curScore >= bestScore) {
+			bestScore = curScore;
+			bestPosition = idx;
+		}
+	}
+	return std::pair<int, int>(bestScore, bestPosition);
 }
 
-int MaskQvalsByEamss::findStr(const std::string &targetString, const std::string &queryString, int start, int stop) const
+int MaskQvalsByEamss::findStr(const char targetString[],
+			      const std::string &queryString,
+			      int start, int stop) const
 {
-    const std::string substring = targetString.substr(start, stop - start + 1);
-    const size_t result = substring.find(queryString);
-    return (substring.npos == result) ? -1 : (result+start);
+	void *p = memmem(targetString + start, stop - start,
+			 queryString.c_str(), queryString.size());
+	if (p)
+		return (const char*)p - targetString;
+	else
+		return -1;
 }
 
 } // namespace demultiplex
