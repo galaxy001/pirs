@@ -24,6 +24,15 @@
 #include <stdio.h>
 #include <inttypes.h>
 
+#define GCC_VERSION (__GNUC__ * 10000 \
+		+ __GNUC_MINOR__ * 100 \
+		+ __GNUC_PATCHLEVEL__)
+#if GCC_VERSION >= 40201
+#	ifndef WITH_DEBUG
+#		pragma GCC diagnostic ignored "-Wfloat-equal"
+#	endif
+#endif
+
 class InputStream;
 
 extern FILE *info_messages_fp;
@@ -50,10 +59,10 @@ extern void delete_matrix(void *matrix, size_t dimc, ...) __cold;
 
 extern void make_matrix_row_cumulative(double row[], size_t len);
 
-extern void make_2D_matrix_cumulative(double **matrix, size_t width, 
+extern void make_2D_matrix_cumulative(double **matrix, size_t width,
 				      size_t height);
 
-extern void make_3D_matrix_cumulative(double ***matrix, size_t width, 
+extern void make_3D_matrix_cumulative(double ***matrix, size_t width,
 				      size_t height, size_t depth);
 
 extern bool prepare_uint64_probability_array(uint64_t array[], size_t len,

@@ -42,6 +42,9 @@ all: pirs
 pirs: $(SOURCES)
 	g++ $(WARNFLAGS) $(CPPFLAGS) $(OLevel) -o $@ $^ $(LDFLAGS)
 
+dpirs: $(SOURCES)
+	g++ $(WARNFLAGS) $(CPPFLAGS) $(OLevel) -g -DWITH_DEBUG -o $@ $^ $(LDFLAGS)
+
 test: pirs
 	cd test && sh pirs.sh
 	ls -l test/
@@ -50,6 +53,6 @@ distclean:
 	-rm test/Illumina_* test/ref22* test/*.out test/*.err test/EAMSS2_*
 
 clean: distclean
-	-rm pirs
+	-rm pirs dpirs
 
-.PHONY: distclean clean test
+.PHONY: distclean clean test dpirs
