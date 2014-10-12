@@ -1,0 +1,34 @@
+Installation
+============
+
+pIRS requires the zlib library (http://www.zlib.net/) to be installed.
+
+The Boost library is no longer needed by pIRS.
+
+To compile, run the commands:
+
+	$ ./configure
+	$ make
+	$ make install
+
+In addition, the `configure' script recognizes the following options:
+	
+--prefix=PREFIX
+	Set installation root.  e.g. if you use --prefix=/usr, we install pirs
+	to /usr/bin/pirs, and the profiles to /usr/share/pirs.  pIRS must be
+	able to find its profiles in order to simulate reads, unless you run
+	with `--no-subst-errors --no-gc-bias --no-indel-errors' to disable all
+	the bias (not recommended).
+
+--disable-threads
+	Build single-threaded program.
+
+--disable-sse2
+	Use the generic Mersenne twister random number generator algorithm
+	rather than the SSE2-accelerated version.
+
+--disable-pirs-simulate
+	Only support the `pirs diploid' command.
+
+--disable-pirs-diploid
+	Only support the `pirs simulate' command.
