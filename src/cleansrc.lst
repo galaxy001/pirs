@@ -23,7 +23,6 @@
 ./pirs/InputStream.h
 ./pirs/Lock.h
 ./pirs/main.cpp
-./pirs/Makefile
 ./pirs/Makefile.am
 ./pirs/MaskQvalsByEamss.cpp
 ./pirs/MaskQvalsByEamss.h
