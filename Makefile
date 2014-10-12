@@ -8,7 +8,7 @@ PERL_LIST = stator/baseCallingMatrix/baseCalling_Matrix_analyzer \
 	stator/gcContCvgBias/gc_coverage_bias_plot
 
 simulator:
-	cd ./src/pirs && ${MAKE}
+	cd ./src/pirs && ${MAKE} -f gccMakefile
 
 stator:
 	cd ./src/stator/gcContCvgBias && ${MAKE}
