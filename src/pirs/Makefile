@@ -1,4 +1,4 @@
-CFLAGS = -pipe -mtune=generic -msse2 -fopenmp -DSFMT_MEXP=19937 -DHAVE_CONFIG_H -DPKGDATADIR='"/usr/local/share/pirs"' -I. -ISFMT-src-1.4
+CFLAGS = -pipe -mtune=generic -msse2 -fopenmp -DSFMT_MEXP=19937 -DHAVE_CONFIG_H -DPKGDATADIR='"/usr/local/share/pirs"' -I. -I.. -ISFMT-src-1.4
 
 ifeq ($(shell uname -s),Darwin)
 CFLAGS += -march=core2 -Bstatic -L/opt/local/lib -I/opt/local/include
