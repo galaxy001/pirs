@@ -22,11 +22,11 @@ symlinks:
 	done
 
 test: all
-	cd ./src/pirs && ${MAKE} test
+	cd ./src/pirs && ${MAKE} -f gccMakefile test
 	cd ./src/stator/gcContCvgBias && ${MAKE} test
 
 distclean:
-	cd ./src/pirs && ${MAKE} distclean
+	cd ./src/pirs && ${MAKE} -f gccMakefile distclean
 	cd ./src/stator/gcContCvgBias && ${MAKE} distclean
 	-rm pIRS_*.tgz
 
@@ -38,7 +38,7 @@ dist: all distclean
 	@mv /var/tmp/pIRS_$(tDATE)_$(tTIME).tgz ./pIRS_$(tDATE).tgz
 
 clean: distclean
-	cd ./src/pirs && ${MAKE} clean
+	cd ./src/pirs && ${MAKE} -f gccMakefile clean
 	cd ./src/stator/gcContCvgBias && ${MAKE} clean
 	-rm pirs gc_coverage_bias
 	-@for P in ${PERL_LIST}; do \
