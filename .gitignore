@@ -1,3 +1,5 @@
+src/afterclean.lst
+
 *.bak
 *.md5
 ._*
