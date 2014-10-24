@@ -33,7 +33,7 @@ distclean:
 tDATE := $(shell date +%Y%m%d)
 tTIME := $(shell date +%H%M%S)
 dist: all distclean
-	@echo "Packing pIRS_$(tDATE).tgz ..."
+	@echo "Packing pIRS_$(tDATE).tar.gz ..."
 	@tar -czf /var/tmp/pIRS_$(tDATE)_$(tTIME).tgz --exclude '.git*' .
 	@mv /var/tmp/pIRS_$(tDATE)_$(tTIME).tgz ./pIRS_$(tDATE).tgz
 
