@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 =pod
 Author: Hu Xuesong @ BGI <huxuesong@genomics.org.cn>
-Version: 0.1.1 @ 20110819
+Version: 0.1.2 @ 20140115
 =cut
 use strict;
 use warnings;
@@ -64,7 +64,7 @@ our($opt_o, $opt_r, $opt_l, $opt_p, $opt_s, $opt_c, $opt_t, $opt_q, $opt_b);
 our $help=<<EOH;
 \t-p type of input files {(auto),sam,soap,fq} [ONLY pIRS Generated fq]
 \t-r ref fasta file (./ref/human.fa) [.{gz,bz2} is OK]
-\t-s trim SNP positions from (<filename>) in format /^ChrID\\tPos/
+\t-s trim SNP positions from (<filename>) in format /^ChrID\\tPos/. VCF file with only SNP is OK.
 \t-l read length of reads (100)
 \t-o output prefix (./matrix).{count,ratio}.matrix and .{stat,info}
 \t-c ChrID list (./chrtouse)
