@@ -192,35 +192,35 @@ my %statQmkv;	# {$Len}->{PreQ_Avg}{Q}
 my $QmkvMaxLen=3;
 
 sub statRead($$$$$) {
-    my ($ref,$isReverse,$read,$Qstr,$cyclestart)=@_;
-    if ($isReverse) {
-        $ref =~ tr/acgtrymkswhbvdnxACGTRYMKSWHBVDNX/tgcayrkmswdvbhnxTGCAYRKMSWDVBHNX/;
-        $read =~ tr/acgtrymkswhbvdnxACGTRYMKSWHBVDNX/tgcayrkmswdvbhnxTGCAYRKMSWDVBHNX/;
+	my ($ref,$isReverse,$read,$Qstr,$cyclestart)=@_;
+	if ($isReverse) {
+		$ref =~ tr/acgtrymkswhbvdnxACGTRYMKSWHBVDNX/tgcayrkmswdvbhnxTGCAYRKMSWDVBHNX/;
+		$read =~ tr/acgtrymkswhbvdnxACGTRYMKSWHBVDNX/tgcayrkmswdvbhnxTGCAYRKMSWDVBHNX/;
 		$ref = scalar reverse $ref;
 		$read = scalar reverse $read;
 		$Qstr = scalar reverse $Qstr;
-    }
+	}
 #	doTheStat($ref,$read,$Qstr,$cyclestart);
 #}
 #sub doTheStat($$$$) {
-#    my ($ref,$read,$Qstr,$cyclestart)=@_;
-    my $PEpos=-1;
-    my $QBflag=0;
-    my $lastQ=-1;
+#	my ($ref,$read,$Qstr,$cyclestart)=@_;
+	my $PEpos=-1;
+	my $QBflag=0;
+	my $lastQ=-1;
 	my $SumQ=0;
 	my @Qvalues;
-    for (my $i=0;$i<$READLEN;$i++) {
-        my $refBase=substr $ref,$i,1 or return;
-        my $QstrSingle=substr $Qstr,$i,1;
-        my $Qval=ord($QstrSingle)-$Qascii;
+	for (my $i=0;$i<$READLEN;$i++) {
+		my $refBase=substr $ref,$i,1 or return;
+		my $QstrSingle=substr $Qstr,$i,1;
+		my $Qval=ord($QstrSingle)-$Qascii;
 		push @Qvalues,$Qval;
 		next unless $refBase =~ /^[ATCG]$/;
-        my $readBase=substr $read,$i,1;
-        next if $readBase eq 'N';
-        if ($MaxQ<$Qval) {
-            $MaxQ=$Qval;
-            warn "[!] Qval=$Qval($QstrSingle) > 40 found. Remember to add -I at bwa aln for Illumina reads !\n";
-        }
+		my $readBase=substr $read,$i,1;
+		next if $readBase eq 'N';
+		if ($MaxQ<$Qval) {
+			$MaxQ=$Qval;
+			warn "[!] Qval=$Qval($QstrSingle) > 40 found. Remember to add -I at bwa aln for Illumina reads !\n";
+		}
 		$PEpos=$cyclestart+$i;
 		if ($lastQ != -1) {	# 1st cycle skipped; 1st can be 'N', so not $PEpos > 1
 			++$MarkovStat{$refBase}{$PEpos}{$lastQ}{$readBase}{$Qval};
@@ -228,20 +228,20 @@ sub statRead($$$$$) {
 		}
 		$lastQ = $Qval;
 		$SumQ += $Qval;
-        ++$Stat{$refBase}{$PEpos}{$readBase}{$Qval};
-        if ($Qval <= 2) {
-            $QBflag = 1;
-            ++$QBbase;
+		++$Stat{$refBase}{$PEpos}{$readBase}{$Qval};
+		if ($Qval <= 2) {
+			$QBflag = 1;
+			++$QBbase;
 			$MinQ = $Qval if $MinQ > $Qval;	# well, if v1.8+, $MinQ can touch 0.
-        }
-        if ($refBase ne $readBase) {
-            ++$MisBase;
-            $QBmis += $QBflag;
-        }
-        ++$BaseCountTypeRef{$refBase};
-        ++$TotalBase;
+		}
+		if ($refBase ne $readBase) {
+			++$MisBase;
+			$QBmis += $QBflag;
+		}
+		++$BaseCountTypeRef{$refBase};
+		++$TotalBase;
 #print "$isReverse {$refBase}{$PEpos}{$readBase}{$Qval} ",($refBase eq $readBase)?'=':'x',"\n";
-    }
+	}
 	my $Read_num;
 	if ($PEpos > $READLEN) {
 		$Read_num = 2;
@@ -267,43 +267,43 @@ sub statRead($$$$$) {
 
 my $type;
 if ($opt_p eq 'sam') {
-    $type = 'sam';
+	$type = 'sam';
 } elsif ($opt_p eq 'soap') {
-    $type = 'soap';
-    $Qascii = 64;
+	$type = 'soap';
+	$Qascii = 64;
 } elsif ($opt_p eq 'fq') {
-    $type = 'fq';
+	$type = 'fq';
 } else {
-    chomp($_=<>) or die "[x]Empty input !\n";
-    if (/^@/) {
-        if (/^@\w+\t/) {
-            $type = 'sam';
-        } else {
-            $type = 'fq';
-            # @read_800_22/1 ChrID 2 129025 70 786 32,C;70,A;
-        }
-    } else {
-        $type = 'soap';
-        $Qascii = 64;
-        my @read1=split /\t/;
-        chomp($_=<>) or die "[x]Input too short !\n";
-        my @read2=split /\t/;
-        die "[x]Not PE soap file.\n" if $read1[0] ne $read2[0];
-        $mapBase += $read1[5]+$read2[5];
-        $mapReads +=2;
-        goto LABEL unless exists $Genome{$read1[7]};
-        goto LABEL unless $read1[3] == 1 and $read2[3] == 1;  # Hit==1
-        goto LABEL if $read1[9] > 100 or $read2[9] > 100; # No Indel
-        goto LABEL unless $read1[5] == $READLEN;
-        goto LABEL unless $read2[5] == $READLEN;
-        goto LABEL unless $read1[7] eq $read2[7];   # same Reference sequence NAME
-        my $ref1=uc getBases($read1[7],$read1[8],$READLEN) or print join("\t",@read1),"\n";
-        my $ref2=uc getBases($read2[7],$read2[8],$READLEN) or print join("\t",@read2),"\n";
-        #my ($QNAME,$Seq,$Qual,$Hit,$a/b,$Len,$Strand,$Chr,$Pos,$Type,$SMID,$CIAGR,$Etc)=@read1;
-        #       0     1    2     3    4    5     6      7    8    9     10     11   12
-        statRead($ref1,$read1[6] eq '-',$read1[1],$read1[2],1);
-        statRead($ref2,$read2[6] eq '-',$read2[1],$read2[2],1+$READLEN);
-    }
+	chomp($_=<>) or die "[x]Empty input !\n";
+	if (/^@/) {
+		if (/^@\w+\t/) {
+			$type = 'sam';
+		} else {
+			$type = 'fq';
+			# @read_800_22/1 ChrID 2 129025 70 786 32,C;70,A;
+		}
+	} else {
+		$type = 'soap';
+		$Qascii = 64;
+		my @read1=split /\t/;
+		chomp($_=<>) or die "[x]Input too short !\n";
+		my @read2=split /\t/;
+		die "[x]Not PE soap file.\n" if $read1[0] ne $read2[0];
+		$mapBase += $read1[5]+$read2[5];
+		$mapReads +=2;
+		goto LABEL unless exists $Genome{$read1[7]};
+		goto LABEL unless $read1[3] == 1 and $read2[3] == 1;  # Hit==1
+		goto LABEL if $read1[9] > 100 or $read2[9] > 100; # No Indel
+		goto LABEL unless $read1[5] == $READLEN;
+		goto LABEL unless $read2[5] == $READLEN;
+		goto LABEL unless $read1[7] eq $read2[7];   # same Reference sequence NAME
+		my $ref1=uc getBases($read1[7],$read1[8],$READLEN) or print join("\t",@read1),"\n";
+		my $ref2=uc getBases($read2[7],$read2[8],$READLEN) or print join("\t",@read2),"\n";
+		#my ($QNAME,$Seq,$Qual,$Hit,$a/b,$Len,$Strand,$Chr,$Pos,$Type,$SMID,$CIAGR,$Etc)=@read1;
+		#       0     1    2     3    4    5     6      7    8    9     10     11   12
+		statRead($ref1,$read1[6] eq '-',$read1[1],$read1[2],1);
+		statRead($ref2,$read2[6] eq '-',$read2[1],$read2[2],1+$READLEN);
+	}
 }
 LABEL:
 print STDERR "[!]Input file type is [$type].\n";
@@ -328,11 +328,11 @@ sub DealNotYetPaired($$$$$$$) {
 }
 
 if ($type eq 'sam') {
-    while (<>) {
-        next if /^@\w\w\t\w\w:/;
-        chomp;
-        my @read1=split /\t/;
-        ++$mapReads if $read1[2] ne '*';
+	while (<>) {
+		next if /^@\w\w\t\w\w:/;
+		chomp;
+		my @read1=split /\t/;
+		++$mapReads if $read1[2] ne '*';
 		if ($read1[5] =~ /(\d+)M/) {
 			$mapBase += $1;
 			unless ($1 == $READLEN) {
@@ -343,14 +343,14 @@ if ($type eq 'sam') {
 			DealNotYetPaired('Del',$read1[0],'',0,'','',0);
 			next;
 		}
-        next unless exists $Genome{$read1[2]};
-        next unless ($read1[1] & 3) == 3;  # paired + mapped in a proper pair; samtools view -f 3
-        next if $read1[1] >= 256;   # not primary || QC failure || optical or PCR duplicate; samtools view -F 1792
-        next unless $read1[6] eq '=';   # same Reference sequence NAME
-        #next if $read1[11] eq 'XT:A:R'; # Type: Unique/Repeat/N/Mate-sw, N not found.
+		next unless exists $Genome{$read1[2]};
+		next unless ($read1[1] & 3) == 3;  # paired + mapped in a proper pair; samtools view -f 3
+		next if $read1[1] >= 256;   # not primary || QC failure || optical or PCR duplicate; samtools view -F 1792
+		next unless $read1[6] eq '=';   # same Reference sequence NAME
+		#next if $read1[11] eq 'XT:A:R'; # Type: Unique/Repeat/N/Mate-sw, N not found.
 		my $OPT = join("\t",@read1[11 .. $#read1]);
 		next if $OPT =~ /\bXT:A:R\b/;
-        my $ref1=uc getBases($read1[2],$read1[3],$READLEN) or print join("\t",@read1),"\n";
+		my $ref1=uc getBases($read1[2],$read1[3],$READLEN) or print join("\t",@read1),"\n";
 		my $ReadCycle;
 		if ($read1[1] & 64) {
 			$ReadCycle = 1;
@@ -360,34 +360,34 @@ if ($type eq 'sam') {
 			warn "[w]",join("\t",@read1),"\n";
 			next;
 		}
-        #my ($QNAME,$FLAG,$RNAME,$POS,$MAPQ,$CIAGR,$MRNM,$MPOS,$ISIZE,$SEQ,$QUAL,$OPT)=@read1;
-        #       0      1    2       3   4       5   6       7     8     9    10    11
+		#my ($QNAME,$FLAG,$RNAME,$POS,$MAPQ,$CIAGR,$MRNM,$MPOS,$ISIZE,$SEQ,$QUAL,$OPT)=@read1;
+		#       0      1    2       3   4       5   6       7     8     9    10    11
 		DealNotYetPaired('Add',$read1[0],$ref1,$read1[1] & 16,$read1[9],$read1[10],$ReadCycle);
-    }
+	}
 } else {
-    while (<>) {
-        #next if /^@\w\w\t\w\w:/;
-        chomp;
-        my @read1=split /\t/;
-        chomp($_=<>) or last;
-        my @read2=split /\t/;
-    #print join("\t",@read1),"\n-",join("\t",@read2),"\n";
-        die "[x]Not PE soap file.\n" if $read1[0] ne $read2[0];
-        $mapBase += $read1[5]+$read2[5];
-        $mapReads +=2;
-        next unless exists $Genome{$read1[7]};
-        next unless $read1[3] == 1 and $read2[3] == 1;  # Hit==1
-        next if $read1[9] > 100 or $read2[9] > 100; # No Indel
-        next unless $read1[5] == $READLEN;
-        next unless $read2[5] == $READLEN;
-        next unless $read1[7] eq $read2[7];   # same Reference sequence NAME
-        my $ref1=uc getBases($read1[7],$read1[8],$READLEN) or print join("\t",@read1),"\n";
-        my $ref2=uc getBases($read2[7],$read2[8],$READLEN) or print join("\t",@read2),"\n";
-        #my ($QNAME,$Seq,$Qual,$Hit,$a/b,$Len,$Strand,$Chr,$Pos,$Type,$SMID,$CIAGR,$Etc)=@read1;
-        #       0     1    2     3    4    5     6      7    8    9     10     11   12
-        statRead($ref1,$read1[6] eq '-',$read1[1],$read1[2],1);
-        statRead($ref2,$read2[6] eq '-',$read2[1],$read2[2],1+$READLEN);
-    }
+	while (<>) {
+		#next if /^@\w\w\t\w\w:/;
+		chomp;
+		my @read1=split /\t/;
+		chomp($_=<>) or last;
+		my @read2=split /\t/;
+	#print join("\t",@read1),"\n-",join("\t",@read2),"\n";
+		die "[x]Not PE soap file.\n" if $read1[0] ne $read2[0];
+		$mapBase += $read1[5]+$read2[5];
+		$mapReads +=2;
+		next unless exists $Genome{$read1[7]};
+		next unless $read1[3] == 1 and $read2[3] == 1;  # Hit==1
+		next if $read1[9] > 100 or $read2[9] > 100; # No Indel
+		next unless $read1[5] == $READLEN;
+		next unless $read2[5] == $READLEN;
+		next unless $read1[7] eq $read2[7];   # same Reference sequence NAME
+		my $ref1=uc getBases($read1[7],$read1[8],$READLEN) or print join("\t",@read1),"\n";
+		my $ref2=uc getBases($read2[7],$read2[8],$READLEN) or print join("\t",@read2),"\n";
+		#my ($QNAME,$Seq,$Qual,$Hit,$a/b,$Len,$Strand,$Chr,$Pos,$Type,$SMID,$CIAGR,$Etc)=@read1;
+		#       0     1    2     3    4    5     6      7    8    9     10     11   12
+		statRead($ref1,$read1[6] eq '-',$read1[1],$read1[2],1);
+		statRead($ref2,$read2[6] eq '-',$read2[1],$read2[2],1+$READLEN);
+	}
 }
 
 open OA,'>',$opt_o.'.count.matrix' or die "Error: $!\n";
@@ -433,12 +433,12 @@ $tmp="#Generate @ $date by ${user}$mail
 my @BaseOrder=sort qw{A T C G}; # keys %BaseCountTypeRef;
 my $RBR;
 for (@BaseOrder) {
-    $RBR .= $_.' '. int(0.5+100*1000*$BaseCountTypeRef{$_}/$TotalBase)/1000 .' %;   ';
+	$RBR .= $_.' '. int(0.5+100*1000*$BaseCountTypeRef{$_}/$TotalBase)/1000 .' %;   ';
 }
 $tmp .= $RBR;
 my @BaseQ;
 for my $base (@BaseOrder) {
-    push @BaseQ,"$base-$_" for (0..$MaxQ);
+	push @BaseQ,"$base-$_" for (0..$MaxQ);
 }
 $tmp .= "\n
 [Info]
@@ -472,33 +472,33 @@ print OA "\tRowSum\n";
 print OB "\n";
 my ($count,$countsum);
 for my $ref (@BaseOrder) {
-    #print OA "\n";
-    for my $cycle (1..(2*$READLEN)) {
-        $tmp="$ref\t$cycle\t";
-        print OA $tmp; print OB $tmp;
-        my (@Counts,@Rates)=();
-        for my $base (@BaseOrder) {
-            for my $q (0..$MaxQ) {
-                if (exists $Stat{$ref}{$cycle} and exists $Stat{$ref}{$cycle}{$base} and exists $Stat{$ref}{$cycle}{$base}{$q}) {
-                    $count=$Stat{$ref}{$cycle}{$base}{$q};
-                } else {$count=0;}
-                push @Counts,$count;
-                &toCountGridSampled($count,'4D') if $q >= $MinQ;
-            }
-        }
-        $countsum=0;
-        $countsum += $_ for @Counts;
-        $countsum=-1 if $countsum==0;
-        push @Rates,$_/$countsum for @Counts;
-        print OA join("\t",@Counts,$countsum),"\n";
-        print OB join("\t",@Rates),"\n";
-    }
+	#print OA "\n";
+	for my $cycle (1..(2*$READLEN)) {
+		$tmp="$ref\t$cycle\t";
+		print OA $tmp; print OB $tmp;
+		my (@Counts,@Rates)=();
+		for my $base (@BaseOrder) {
+			for my $q (0..$MaxQ) {
+				if (exists $Stat{$ref}{$cycle} and exists $Stat{$ref}{$cycle}{$base} and exists $Stat{$ref}{$cycle}{$base}{$q}) {
+					$count=$Stat{$ref}{$cycle}{$base}{$q};
+				} else {$count=0;}
+				push @Counts,$count;
+				&toCountGridSampled($count,'4D') if $q >= $MinQ;
+			}
+		}
+		$countsum=0;
+		$countsum += $_ for @Counts;
+		$countsum=-1 if $countsum==0;
+		push @Rates,$_/$countsum for @Counts;
+		print OA join("\t",@Counts,$countsum),"\n";
+		print OB join("\t",@Rates),"\n";
+	}
 }
 print OA "<<END\n\n";
 
 print OA "[QTransMatrix]\n#",join("\t",'Cycle','pre1_Q',0..$MaxQ),"\tRowSum\n";
 #for my $ref (@BaseOrder) {
-    for my $cycle (2..(2*$READLEN)) {
+	for my $cycle (2..(2*$READLEN)) {
 		next if $cycle == 1 + $READLEN;	# the first cycle is always 0
 		for my $preQ (0..$MaxQ) {
 			print OA "$cycle\t$preQ\t";
@@ -514,7 +514,7 @@ print OA "[QTransMatrix]\n#",join("\t",'Cycle','pre1_Q',0..$MaxQ),"\tRowSum\n";
 			$countsum += $_ for @Counts;
 			print OA join("\t",@Counts,$countsum),"\n";
 		}
-    }
+	}
 #}
 print OA "<<END\n";
 print OB "<<END\n";
@@ -523,7 +523,7 @@ close OB;
 
 print OC "[5Dmatrix]\nType = 3d\n#",join("\t",'Ref','Cycle','pre1_Q',@BaseQ),"\tRowSum\n";
 for my $ref (@BaseOrder) {
-    for my $cycle (1..(2*$READLEN)) {
+	for my $cycle (1..(2*$READLEN)) {
 		for my $preQ ($MinQ..$MaxQ) {
 			print OC "$ref\t$cycle\t$preQ\t";
 			my @Counts=();
@@ -540,7 +540,7 @@ for my $ref (@BaseOrder) {
 			$countsum += $_ for @Counts;
 			print OC join("\t",@Counts,$countsum),"\n";
 		}
-    }
+	}
 }
 print OC "<<END\n";
 
