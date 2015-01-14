@@ -97,25 +97,25 @@ unless ($opt_b) {print STDERR "Wait 3 seconds to continue...\n"; sleep 3;}
 
 my %Genome;
 if ($opt_c) {
-    open C,'<',$opt_c or die "Error: $!\n";
-    while(<C>){
-        chomp;
+	open C,'<',$opt_c or die "Error: $!\n";
+	while(<C>){
+		chomp;
 		if ($opt_t) {
 			s/$opt_t//;
 		}
-        ++$Genome{$_};
-    }
-    close C;
+		++$Genome{$_};
+	}
+	close C;
 }
 warn "[!]Reading Reference Genome:\n";
 if ($opt_r =~ /.bz2$/) {
-    open( GENOME,"-|","bzip2 -dc $opt_r") or die "Error opening $opt_r: $!\n";
+	open( GENOME,"-|","bzip2 -dc $opt_r") or die "Error opening $opt_r: $!\n";
 } elsif ($opt_r =~ /.gz$/) {
- 	open( GENOME,"-|","gzip -dc $opt_r") or die "Error opening $opt_r: $!\n";
+	open( GENOME,"-|","gzip -dc $opt_r") or die "Error opening $opt_r: $!\n";
 } else {open( GENOME,"<",$opt_r) or die "Error opening $opt_r: $!\n";}
 #open GENOME,'<',$opt_r or die "Error: $!\n";
 while (<GENOME>) {
-    s/^>//;
+	s/^>//;
 	/^(\S+)/ or next;
 	my $seqname = $1;
 	if ($opt_t) {
@@ -132,32 +132,33 @@ while (<GENOME>) {
 	$genome=~s/\s//g;
 	$/="\n";
 	if ((!$opt_c) or exists $Genome{$seqname}) {
-        $Genome{$seqname}=$genome;
-        print STDERR "\b\b\b",length $Genome{$seqname},".\n";
-    } else {print STDERR "\b\b\b",length $genome,", skipped.\n";}
+		$Genome{$seqname}=$genome;
+		print STDERR "\b\b\b",length $Genome{$seqname},".\n";
+	} else {print STDERR "\b\b\b",length $genome,", skipped.\n";}
 	$genome='';
 }
 close GENOME;
 if ($opt_s) {
-    print STDERR "[!]Reading SNP: ";
-    open SNP,'<',$opt_s or die "Error: $!\n";
-    while(<SNP>) {
-        chomp;
-        my ($chr,$pos)=split /\s+/;
+	print STDERR "[!]Reading SNP: ";
+	open SNP,'<',$opt_s or die "Error: $!\n";
+	while(<SNP>) {
+		next if /^#/;	# now we can read vcf files directly.
+		chomp;
+		my ($chr,$pos)=split /\s+/;
 		if ($opt_t) {
 			$chr =~ s/$opt_t//;
 		}
-        substr $Genome{$chr},$pos-1,1,'x' if exists $Genome{$chr};
-    }
-    close SNP;
-    print STDERR "done.\n";
+		substr $Genome{$chr},$pos-1,1,'x' if exists $Genome{$chr};
+	}
+	close SNP;
+	print STDERR "done.\n";
 }
 ###
 #print ">$_\n$Genome{$_}\n\n" for sort keys %Genome;
 ###
 sub getBases($$$) {
-    my ($chr,$start,$len)=@_;
-    return substr $Genome{$chr},$start-1,$len;
+	my ($chr,$start,$len)=@_;
+	return substr $Genome{$chr},$start-1,$len;
 }
 
 my $READLEN=$opt_l;
