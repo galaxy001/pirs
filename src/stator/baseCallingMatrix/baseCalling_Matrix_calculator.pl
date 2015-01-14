@@ -638,4 +638,5 @@ TODO:
 add reference masked len.
 
 Example for bam file:
-samtools view -f 3 -F 1792 -h GA0146.sort.bam | ./pirs/baseCalling_Matrix_calculator -p sam -r ref.fa -s GA0146.SNPs.filter.vcf -l 125 -o GA0146.matrix -b > GA0146.matrix.log 2>GA0146.matrix.err
+samtools view -f 3 -F 1792 -h GA0146.sort.bam | ./pirs/baseCalling_Matrix_calculator -p sam -r ref.fa -s GA0146.SNPs.filter.vcf -l 125 -o GA0146.matrix -b >GA0146.matrix.log 2>GA0146.matrix.err
+# log should be empty in normal situation.
