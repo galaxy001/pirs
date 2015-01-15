@@ -191,6 +191,8 @@ my %PlotReadsQavgHist;   # $PlotReadsQavgHist{Read1,2}{Q(round to 0.5)}=count, -
 my %statQmkv;	# {$Len}->{PreQ_Avg}{Q}
 my $QmkvMaxLen=3;
 
+my ($ProcessBP,$ProcessGb) = (0,0);
+
 sub statRead($$$$$) {
 	my ($ref,$isReverse,$read,$Qstr,$cyclestart)=@_;
 	if ($isReverse) {
@@ -263,6 +265,14 @@ sub statRead($$$$$) {
 			++$statQmkv{$qlen}{$Qvalues[$i]}->[int(2*$pQavg/$qlen)];
 		}
 	}
+
+	$ProcessBP += $READLEN;
+	my $t = int($ProcessBP / 1000000000);
+	if ($t>$ProcessGb) {
+		warn "$t Gb\r";
+		$ProcessGb = $t;
+	}
+
 }
 
 my $type;
@@ -307,6 +317,7 @@ if ($opt_p eq 'sam') {
 }
 LABEL:
 print STDERR "[!]Input file type is [$type].\n";
+warn "Process:\n";
 my $start_time = [gettimeofday];
 
 my %NotYetPairedSAM;
@@ -389,6 +400,7 @@ if ($type eq 'sam') {
 		statRead($ref2,$read2[6] eq '-',$read2[1],$read2[2],1+$READLEN);
 	}
 }
+warn "All done !\n";
 
 open OA,'>',$opt_o.'.count.matrix' or die "Error: $!\n";
 open OB,'>',$opt_o.'.ratio.matrix' or die "Error: $!\n";
