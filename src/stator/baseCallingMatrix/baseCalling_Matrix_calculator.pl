@@ -181,7 +181,7 @@ http://en.wikipedia.org/wiki/FASTQ_format#Encoding
 Only J supported now.
 =cut
 my ($TotalBase,$TotalReads,%BaseCountTypeRef)=(0,0);
-my ($mapBase,$mapReads,$QBbase,$QBmis)=(0,0,0,0);
+my ($mapBase,$mapReads,$QBbase,$QBmis,$ProcessGb)=(0,0,0,0,0);
 my $Qascii=33;  # Sam 33, Soap 64.
 $Qascii=64 if $opt_q;
 my %Stat;   # $Stat{Ref}{Cycle}{Read}{Quality}
@@ -190,8 +190,6 @@ my %QTrans;   # $QTrans{Cycle}{pre-Q}{Quality}
 my %PlotReadsQavgHist;   # $PlotReadsQavgHist{Read1,2}{Q(round to 0.5)}=count, -1 => Sum (Illumina Q>0, but maybe 0 after round)
 my %statQmkv;	# {$Len}->{PreQ_Avg}{Q}
 my $QmkvMaxLen=3;
-
-my ($ProcessBP,$ProcessGb) = (0,0);
 
 sub statRead($$$$$) {
 	my ($ref,$isReverse,$read,$Qstr,$cyclestart)=@_;
@@ -265,14 +263,6 @@ sub statRead($$$$$) {
 			++$statQmkv{$qlen}{$Qvalues[$i]}->[int(2*$pQavg/$qlen)];
 		}
 	}
-
-	$ProcessBP += $READLEN;
-	my $t = int($ProcessBP / 10000000)/100;
-	if ($t>$ProcessGb) {
-		print STDERR "\033[2K\r$t Gb";
-		$ProcessGb = $t;
-	}
-
 }
 
 my $type;
@@ -398,6 +388,12 @@ if ($type eq 'sam') {
 		#       0     1    2     3    4    5     6      7    8    9     10     11   12
 		statRead($ref1,$read1[6] eq '-',$read1[1],$read1[2],1);
 		statRead($ref2,$read2[6] eq '-',$read2[1],$read2[2],1+$READLEN);
+
+		my $t = int($mapBase / 10000000)/100;
+		if ($t>$ProcessGb) {
+			print STDERR "\033[2K\r$t Gb";
+			$ProcessGb = $t;
+		}
 	}
 }
 warn "All done !\n";
