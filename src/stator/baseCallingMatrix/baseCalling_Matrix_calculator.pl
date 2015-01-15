@@ -267,9 +267,9 @@ sub statRead($$$$$) {
 	}
 
 	$ProcessBP += $READLEN;
-	my $t = int($ProcessBP / 1000000000);
+	my $t = int($ProcessBP / 10000000)/100;
 	if ($t>$ProcessGb) {
-		warn "$t Gb\r";
+		print STDERR "\033[2K\r$t Gb";
 		$ProcessGb = $t;
 	}
 
@@ -317,7 +317,7 @@ if ($opt_p eq 'sam') {
 }
 LABEL:
 print STDERR "[!]Input file type is [$type].\n";
-warn "Process:\n";
+warn "[!]Process:\n";
 my $start_time = [gettimeofday];
 
 my %NotYetPairedSAM;
