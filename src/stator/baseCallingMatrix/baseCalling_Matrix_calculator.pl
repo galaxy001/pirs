@@ -8,6 +8,9 @@ use warnings;
 use Time::HiRes qw ( gettimeofday tv_interval );
 use Getopt::Std;
 
+my $SAMTOOLSBIN="samtools";
+my $MAXREADStoCHECK=32000;
+
 $Getopt::Std::STANDARD_HELP_VERSION=1;
 sub main::ShowHelp() {
 	if (@main::ARGV == 0) {
@@ -65,24 +68,43 @@ our $help=<<EOH;
 \t-i Input Pair-End SAM/BAM files [used with "samtools view xxx"] 
 \t-r ref fasta file (./ref/human.fa) [.{gz,bz2} is OK]
 \t-s trim SNP positions from (<filename>) in format /^ChrID\\tPos/. VCF file with only SNP is OK.
-\t-l read length of reads (100)
+\t-l read length of reads (int) [Optional. Specify to override auto detected value.]
 \t-o output prefix (./matrix).{count,ratio}.matrix and .{stat,info}
-\t-c ChrID list (./chrtouse)
+\t-c ChrID list file [Useful to analyse only autosomes]
 \t-q Use Qascii=64 for sam files instead of 33
 \t-t Trim ChrID in ref fasta file to match alignment results (none) [use RegEx for s/\$ARG//;]
-\t-b No pause for batch runs
+\t-b No 5s Pause for batch runs
 EOH
 
 ShowHelp();
 unless ($opt_i) {
 	die "[x]-i Input.bam not specified !\n"
 } else {
-	open( INSAM,"-|","samtools view -f 3 -F 1792 -h $opt_i") or die "Error opening $opt_i: $!\n"; 
+	if ($opt_l and $opt_l > 0) {
+		$opt_l = int($opt_l);
+		warn "[!]Use user specified Read Length=",$opt_l,"\n";
+	} else {
+		my ($READLEN,$lines)=(0,0);
+		open IN,"-|","$SAMTOOLSBIN view -f 3 -F 1792 $opt_i" or die "Error opening $opt_i: $!\n";
+		while (<IN>) {
+			#next if /^@\w\w\t\w\w:/;
+			#chomp;
+			my @read1=split /\t/;
+			#next unless ($read1[1] & 3) == 3;  # paired + mapped in a proper pair
+			#next if $read1[1] >= 256;   # not primary || QC failure || optical or PCR duplicate
+			next unless $read1[5] =~ /^(\d+)M$/;
+			$READLEN = $1 if $READLEN < $1;
+			++$lines;
+			last if $lines > $MAXREADStoCHECK;
+		}
+		close IN;
+		$opt_l = $READLEN;
+		warn "[!]Use detected Read Length=",$opt_l," from beginning $MAXREADStoCHECK proper lines of input file.\n";
+	}
+	open( INSAM,"-|","$SAMTOOLSBIN view -f 3 -F 1792 -h $opt_i") or die "Error opening $opt_i: $!\n";
 }
 $opt_r='./ref/human.fa' if ! $opt_r;
 $opt_o='./matrix' if ! $opt_o;
-#$opt_c='./chrtouse' if ! $opt_c;
-$opt_l=100 if ! $opt_l;
 die "[x]-r $opt_r not exists !\n" unless -f $opt_r;
 if ($opt_s) {die "[x]-s $opt_s not exists !\n" unless -f $opt_s;}
 
@@ -91,7 +113,7 @@ print STDERR "ChrID will be trimed by s/$opt_t//;\n" if $opt_t;
 print STDERR "ChrID list:[$opt_c]\n" if $opt_c;
 print STDERR "SNP skipping list:[$opt_s]\n" if $opt_s;
 print STDERR "SAM files with Qascii=64\n" if $opt_q;
-unless ($opt_b) {print STDERR "Wait 3 seconds to continue...\n"; sleep 3;}
+unless ($opt_b) {print STDERR "Wait 3 seconds to continue...\n"; sleep 5;}
 
 #my $start_time = [gettimeofday];
 #BEGIN
@@ -201,10 +223,7 @@ sub statRead($$$$$) {
 		$read = scalar reverse $read;
 		$Qstr = scalar reverse $Qstr;
 	}
-#	doTheStat($ref,$read,$Qstr,$cyclestart);
-#}
-#sub doTheStat($$$$) {
-#	my ($ref,$read,$Qstr,$cyclestart)=@_;
+
 	my $PEpos=-1;
 	my $QBflag=0;
 	my $lastQ=-1;
@@ -214,7 +233,7 @@ sub statRead($$$$$) {
 		my $refBase=substr $ref,$i,1 or return;
 		my $QstrSingle=substr $Qstr,$i,1;
 		my $Qval=ord($QstrSingle)-$Qascii;
-		push @Qvalues,$Qval;
+		push @Qvalues,$Qval;	# used for $statQmkv, thus cannot skip.
 		next unless $refBase =~ /^[ATCG]$/;
 		my $readBase=substr $read,$i,1;
 		next if $readBase eq 'N';
@@ -248,13 +267,6 @@ sub statRead($$$$$) {
 		$Read_num = 2;
 	} else {
 		$Read_num = 1;
-
-		# Process Display. Can only print '^@' in the main sam cycle. Why ?
-		my $t = int($mapBase / 10000000)/100;
-		if ($t>$ProcessGb) {
-			print STDERR "\033[2K\r$t Gb";
-			$ProcessGb = $t;
-		}
 	}
 	unless ($PEpos==-1) {
 		++$TotalReads;
@@ -311,8 +323,8 @@ while (<INSAM>) {
 		next;
 	}
 	next unless exists $Genome{$read1[2]};
-	next unless ($read1[1] & 3) == 3;  # paired + mapped in a proper pair; samtools view -f 3
-	next if $read1[1] >= 256;   # not primary || QC failure || optical or PCR duplicate; samtools view -F 1792
+	#next unless ($read1[1] & 3) == 3;  # paired + mapped in a proper pair; samtools view -f 3
+	#next if $read1[1] >= 256;   # not primary || QC failure || optical or PCR duplicate; samtools view -F 1792
 	next unless $read1[6] eq '=';   # same Reference sequence NAME
 	#next if $read1[11] eq 'XT:A:R'; # Type: Unique/Repeat/N/Mate-sw, N not found.
 	my $OPT = join("\t",@read1[11 .. $#read1]);
@@ -331,9 +343,17 @@ while (<INSAM>) {
 	#       0      1    2       3   4       5   6       7     8     9    10    11
 	#DealNotYetPaired('Add',$read1[0],$ref1,$read1[1] & 16,$read1[9],$read1[10],$ReadCycle);
 	statRead($ref1,$read1[1] & 16,$read1[9],$read1[10],$ReadCycle);
+
+	my $t = int($mapBase / 10000000)/100;
+	if ($t>$ProcessGb) {
+		my $now_time = [gettimeofday];
+		my $tsec = tv_interval($start_time,$now_time);
+		print STDERR "\033[2K\r$t Gb, Spd:",int(0.5+1000000000*$t/$tsec)/1000," Kb\/s for ",int(0.5+1000*$tsec)/1000,"s";
+		$ProcessGb = $t;
+	}
 }
 close INSAM;
-warn "All done !\n";
+warn "\nAll done !\n";
 
 open OA,'>',$opt_o.'.count.matrix' or die "Error: $!\n";
 open OB,'>',$opt_o.'.ratio.matrix' or die "Error: $!\n";
