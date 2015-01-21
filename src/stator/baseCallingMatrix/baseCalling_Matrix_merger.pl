@@ -55,7 +55,7 @@ for(my $i=0;$i<@handles;$i++)
 	else{die "35\tplease check the input files carefully";}
 
 	$data=<$HAND>;
-	if($data=~/#Input\D+(\d+)\D+(\d+)/)
+	if($data=~/#Total mapped Reads\D+(\d+)\D+(\d+)/)
 	{
 		$map_reads[$i] = $1;
 		$map_reads_sum += $1;
@@ -65,7 +65,7 @@ for(my $i=0;$i<@handles;$i++)
 	else{die "45\tplease check the input files carefully";}
 
 	$data=<$HAND>;
-	if($data=~/#Total\D+(\d+)\D+(\d+)\D+(\d+)/)
+	if($data=~/#Total statistical Bases\D+(\d+)\D+(\d+)\D+(\d+)/)
 	{
 		die "read_len is not same" if($read_len !=0 && $read_len != $3);
 		$stat_base[$i] = $1;

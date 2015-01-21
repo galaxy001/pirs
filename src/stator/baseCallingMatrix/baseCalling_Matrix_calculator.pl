@@ -276,7 +276,7 @@ sub statRead($$$$$) {
 LABEL:
 warn "[!]Process:\n";
 my $start_time = [gettimeofday];
-
+=pod
 my %NotYetPairedSAM;
 sub DealNotYetPaired($$$$$$$) {
 	my ($CMD,$QNAME,$ref,$isReverse,$read,$Qstr,$cyclestart)=@_;
@@ -294,7 +294,7 @@ sub DealNotYetPaired($$$$$$$) {
 	}
 	return;
 }
-
+=cut
 while (<INSAM>) {
 	next if /^@\w\w\t\w\w:/;
 	chomp;
@@ -303,11 +303,11 @@ while (<INSAM>) {
 	if ($read1[5] =~ /(\d+)M/) {
 		$mapBase += $1;
 		unless ($1 == $READLEN) {
-			DealNotYetPaired('Del',$read1[0],'',0,'','',0);
+			#DealNotYetPaired('Del',$read1[0],'',0,'','',0);
 			next;
 		}
 	} else {
-		DealNotYetPaired('Del',$read1[0],'',0,'','',0);
+		#DealNotYetPaired('Del',$read1[0],'',0,'','',0);
 		next;
 	}
 	next unless exists $Genome{$read1[2]};
@@ -329,9 +329,8 @@ while (<INSAM>) {
 	}
 	#my ($QNAME,$FLAG,$RNAME,$POS,$MAPQ,$CIAGR,$MRNM,$MPOS,$ISIZE,$SEQ,$QUAL,$OPT)=@read1;
 	#       0      1    2       3   4       5   6       7     8     9    10    11
-	DealNotYetPaired('Add',$read1[0],$ref1,$read1[1] & 16,$read1[9],$read1[10],$ReadCycle);
-	statRead($ref,$isReverse,$read,$Qstr,$cyclestart);
-	statRead($ref1,$read1[1] & 16,$read1[9],$read1[10],1);
+	#DealNotYetPaired('Add',$read1[0],$ref1,$read1[1] & 16,$read1[9],$read1[10],$ReadCycle);
+	statRead($ref1,$read1[1] & 16,$read1[9],$read1[10],$ReadCycle);
 }
 close INSAM;
 warn "All done !\n";
