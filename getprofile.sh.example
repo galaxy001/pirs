@@ -11,8 +11,8 @@
 ./bwa aln -I -t 4 ./bwaref/human.fa ./testA/testA_2.fq.gz > ./sam/testA_2_2.sai 2>> ./sam/testA_sai_2.log
 ./bwa sampe -a 1000 ./bwaref/human.fa ./sam/testA_2_1.sai ./sam/testA_2_2.sai ./testA/testA_1.fq.gz ./testA/testA_2.fq.gz >./sam/testA.sam 2>./sam/testA.sam.log
 
-./baseCalling_Matrix_calculator -r ./ref/human.fa -l 91 -o BCpftestAbwa -b ./sam/testA.sam
-
+# ./baseCalling_Matrix_calculator -r ./ref/human.fa -l 91 -o BCpftestAbwa -b ./sam/testA.sam
+./baseCalling_Matrix_calculator -b -r ./ref/human.fa -i bam/GA0230.sort.bam -s vcf/GA0230.SNPs.filter.vcf -o matrix/GA0230 2>matrix/GA0230.matrix.err
 
 
 ### GC%-Depth Profile ###
