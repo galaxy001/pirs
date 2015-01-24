@@ -55,15 +55,20 @@ for(my $i=0;$i<@handles;$i++)
 	else{die "35\tplease check the input files carefully";}
 
 	$data=<$HAND>;
-	$data=<$HAND>;
-	if($data=~/#Total mapped Reads\D+(\d+)\D+(\d+)/)
-	{
-		$map_reads[$i] = $1;
-		$map_reads_sum += $1;
-		$map_base[$i] = $2;
-		$map_base_sum += $2;
+	if($data=~/#Input\D+(\d+)\D+(\d+)/) {
+			$map_reads[$i] = $1;
+			$map_reads_sum += $1;
+			$map_base[$i] = $2;
+			$map_base_sum += $2;
+	} else {
+		$data=<$HAND>;
+		if ($data=~/#Total mapped Reads\D+(\d+)\D+(\d+)/) {
+			$map_reads[$i] = $1;
+			$map_reads_sum += $1;
+			$map_base[$i] = $2;
+			$map_base_sum += $2;
+		} else {die "45\tplease check the input files carefully";}
 	}
-	else{die "45\tplease check the input files carefully";}
 
 	$data=<$HAND>;
 	if($data=~/#Total statistical Bases\D+(\d+)\D+(\d+)\D+(\d+)/)
