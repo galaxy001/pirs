@@ -55,6 +55,7 @@ for(my $i=0;$i<@handles;$i++)
 	else{die "35\tplease check the input files carefully";}
 
 	$data=<$HAND>;
+	$data=<$HAND>;
 	if($data=~/#Total mapped Reads\D+(\d+)\D+(\d+)/)
 	{
 		$map_reads[$i] = $1;
