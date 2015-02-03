@@ -329,6 +329,7 @@ while (<INSAM>) {
 	#next if $read1[11] eq 'XT:A:R'; # Type: Unique/Repeat/N/Mate-sw, N not found.
 	my $OPT = join("\t",@read1[11 .. $#read1]);
 	next if $OPT =~ /\bXT:A:R\b/;
+	next if $OPT =~ /\bXA:Z:/;	# bwa mem use XA:Z for Alternative hits, SA:Z for Chimeric reads. We need skip those with Alternative hits.
 	my $ref1=uc getBases($read1[2],$read1[3],$READLEN) or print join("\t",@read1),"\n";
 	my $ReadCycle;
 	if ($read1[1] & 64) {
