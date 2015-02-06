@@ -37,7 +37,7 @@ SAM FLAG:
 
 Options:
 	-i Input Pair-End SAM/BAM files [used with "samtools view xxx"] 
-	-r ref fasta file (./ref/human.fa) [.{gz,bz2} is OK]
+	-r Reference FASTA file [.{gz,bz2} is OK]
 	-s skip SNP positions from (<filename>) in format /^ChrID\	Pos/. VCF file with only SNP is OK.
 	-m minimal accepted MAPQ (50)
 	-l read length of reads (int) [Optional. Specify to override auto detected value.]
@@ -55,8 +55,12 @@ Histrical Reason: l,q,t
 
 All filters on input SAM/BAM file:
 1. samtools view -f 3 -F 1792
-2. RNAME not in given Reference file and Chr List
-3. MRNM not '='
-4. MAPQ < "-m minimal accepted MAPQ (50)"
-5. OPT =~ /\bXT:A:R\b/;
-6. OPT =~ /\bXA:Z:/;
+2. (CIAGR =~ /(\d+)M/) && ($1 != $READLEN);
+3. RNAME not in given Reference file and Chr List
+4. MRNM not '='
+5. MAPQ < "-m minimal accepted MAPQ (50)"
+6. OPT =~ /\bXT:A:R\b/;
+7. OPT =~ /\bXA:Z:/;
+
+Example CLI:
+perl baseCalling_Matrix_calculator.pl -b -r ref.fa -i bam/xxx.sort.bam -s vcf/xxx.SNPs.filter.vcf -o matrix/xxx.matrix 2>matrix/xxx.matrix.err
