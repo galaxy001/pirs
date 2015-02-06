@@ -1,0 +1,62 @@
+Input file: samtools view -f 3 -F 1792 -h xxx.bam
+
+SAM FORMAT:
+	┌────┬───────┬──────────────────────────────────────────────────────────┐
+	│Col │ Field │                       Description                        │
+	├────┼───────┼──────────────────────────────────────────────────────────┤
+	│ 1  │ QNAME │ Query (pair) NAME                                        │
+	│ 2  │ FLAG  │ bitwise FLAG                                             │
+	│ 3  │ RNAME │ Reference sequence NAME                                  │
+	│ 4  │ POS   │ 1-based leftmost POSition/coordinate of clipped sequence │
+	│ 5  │ MAPQ  │ MAPping Quality (Phred-scaled)                           │
+	│ 6  │ CIAGR │ extended CIGAR string                                    │
+	│ 7  │ MRNM  │ Mate Reference sequence NaMe (`=' if same as RNAME)      │
+	│ 8  │ MPOS  │ 1-based Mate POSistion                                   │
+	│ 9  │ ISIZE │ Inferred insert SIZE                                     │
+	│10  │ SEQ   │ query SEQuence on the same strand as the reference       │
+	│11  │ QUAL  │ query QUALity (ASCII-33 gives the Phred base quality)    │
+	│12  │ OPT   │ variable OPTional fields in the format TAG:VTYPE:VALUE   │
+	└────┴───────┴──────────────────────────────────────────────────────────┘
+
+SAM FLAG:
+	┌────┬────────┬───────────────────────────────────────┐
+	│Chr │  Flag  │              Description              │
+	├────┼────────┼───────────────────────────────────────┤
+	│ p +│ 0x0001 │ the read is paired in sequencing      │
+	│ P +│ 0x0002 │ the read is mapped in a proper pair   │
+	│ u  │ 0x0004 │ the query sequence itself is unmapped │
+	│ U  │ 0x0008 │ the mate is unmapped                  │
+	│ r  │ 0x0010 │ strand of the query (1 for reverse)   │
+	│ R  │ 0x0020 │ strand of the mate                    │
+	│ 1  │ 0x0040 │ the read is the first read in a pair  │
+	│ 2  │ 0x0080 │ the read is the second read in a pair │
+	│ s -│ 0x0100 │ the alignment is not primary          │
+	│ f -│ 0x0200 │ QC failure                            │
+	│ d -│ 0x0400 │ optical or PCR duplicate              │
+	└────┴────────┴───────────────────────────────────────┘
+
+Options:
+	-i Input Pair-End SAM/BAM files [used with "samtools view xxx"] 
+	-r ref fasta file (./ref/human.fa) [.{gz,bz2} is OK]
+	-s skip SNP positions from (<filename>) in format /^ChrID\	Pos/. VCF file with only SNP is OK.
+	-m minimal accepted MAPQ (50)
+	-l read length of reads (int) [Optional. Specify to override auto detected value.]
+	-o output prefix (./matrix).{count,ratio}.matrix and .{stat,info}
+	-c ChrID list file [Useful to analyse only autosomes]
+	-q Use Qascii=64 for sam files instead of 33
+	-t Trim ChrID in ref fasta file to match alignment results (none) [use RegEx for s/\$ARG//;]
+	-b No 5s Pause for batch runs
+
+Should be set: i,r,o
+Better to have: b,s
+With reasonable defaults: m
+Up to you: c
+Histrical Reason: l,q,t
+
+All filters on input SAM/BAM file:
+1. samtools view -f 3 -F 1792
+2. RNAME not in given Reference file and Chr List
+3. MRNM not '='
+4. MAPQ < "-m minimal accepted MAPQ (50)"
+5. OPT =~ /\bXT:A:R\b/;
+6. OPT =~ /\bXA:Z:/;

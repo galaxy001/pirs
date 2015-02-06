@@ -115,7 +115,7 @@ print STDERR "ChrID will be trimed by s/$opt_t//;\n" if $opt_t;
 print STDERR "ChrID list:[$opt_c]\n" if $opt_c;
 print STDERR "SNP skipping list:[$opt_s]\n" if $opt_s;
 print STDERR "SAM files with Qascii=64\n" if $opt_q;
-unless ($opt_b) {print STDERR "Wait 3 seconds to continue...\n"; sleep 3;}
+unless ($opt_b) {print STDERR "Wait 5 seconds to continue...\n"; sleep 5;}
 
 #my $start_time = [gettimeofday];
 #BEGIN
@@ -131,6 +131,7 @@ if ($opt_c) {
 		++$Genome{$_};
 	}
 	close C;
+	print STDERR "[!]ChrID list:[",join('],[',(sort keys %Genome)),"].\n";
 }
 warn "[!]Reading Reference Genome:\n";
 if ($opt_r =~ /.bz2$/) {
