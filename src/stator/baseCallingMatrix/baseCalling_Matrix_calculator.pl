@@ -60,14 +60,15 @@ EOH
 }
 
 $main::VERSION=1.0.0;
-our $opts='i:r:o:l:s:c:t:qb';
-our($opt_i, $opt_o, $opt_r, $opt_l, $opt_s, $opt_c, $opt_t, $opt_q, $opt_b);
+our $opts='i:r:o:l:s:c:t:m:qb';
+our($opt_i, $opt_o, $opt_r, $opt_l, $opt_s, $opt_c, $opt_t, $opt_q, $opt_m, $opt_b);
 
 #our $desc='';
 our $help=<<EOH;
 \t-i Input Pair-End SAM/BAM files [used with "samtools view xxx"] 
 \t-r ref fasta file (./ref/human.fa) [.{gz,bz2} is OK]
-\t-s trim SNP positions from (<filename>) in format /^ChrID\\tPos/. VCF file with only SNP is OK.
+\t-s skip SNP positions from (<filename>) in format /^ChrID\\tPos/. VCF file with only SNP is OK.
+\t-m minimal accepted MAPQ (50)
 \t-l read length of reads (int) [Optional. Specify to override auto detected value.]
 \t-o output prefix (./matrix).{count,ratio}.matrix and .{stat,info}
 \t-c ChrID list file [Useful to analyse only autosomes]
@@ -105,15 +106,16 @@ unless ($opt_i) {
 }
 $opt_r='./ref/human.fa' if ! $opt_r;
 $opt_o='./matrix' if ! $opt_o;
+$opt_m=50 if (! $opt_m) or $opt_m < 0;
 die "[x]-r $opt_r not exists !\n" unless -f $opt_r;
 if ($opt_s) {die "[x]-s $opt_s not exists !\n" unless -f $opt_s;}
 
-print STDERR "From [$opt_i] of [$opt_l] with [$opt_r] to [$opt_o]\n";
+print STDERR "From [$opt_i][$opt_m] of [$opt_l] with [$opt_r] to [$opt_o]\n";
 print STDERR "ChrID will be trimed by s/$opt_t//;\n" if $opt_t;
 print STDERR "ChrID list:[$opt_c]\n" if $opt_c;
 print STDERR "SNP skipping list:[$opt_s]\n" if $opt_s;
 print STDERR "SAM files with Qascii=64\n" if $opt_q;
-unless ($opt_b) {print STDERR "Wait 3 seconds to continue...\n"; sleep 5;}
+unless ($opt_b) {print STDERR "Wait 3 seconds to continue...\n"; sleep 3;}
 
 #my $start_time = [gettimeofday];
 #BEGIN
@@ -326,6 +328,7 @@ while (<INSAM>) {
 	#next unless ($read1[1] & 3) == 3;  # paired + mapped in a proper pair; samtools view -f 3
 	#next if $read1[1] >= 256;   # not primary || QC failure || optical or PCR duplicate; samtools view -F 1792
 	next unless $read1[6] eq '=';   # same Reference sequence NAME
+	next if $read1[4] < $opt_m;	# 5,MAPQ: MAPping Quality (Phred-scaled)
 	#next if $read1[11] eq 'XT:A:R'; # Type: Unique/Repeat/N/Mate-sw, N not found.
 	my $OPT = join("\t",@read1[11 .. $#read1]);
 	next if $OPT =~ /\bXT:A:R\b/;
