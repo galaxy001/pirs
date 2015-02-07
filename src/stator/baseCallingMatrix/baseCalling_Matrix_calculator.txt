@@ -38,23 +38,26 @@ SAM FLAG:
 Options:
 	-i Input Pair-End SAM/BAM files [used with "samtools view xxx"] 
 	-r Reference FASTA file [.{gz,bz2} is OK]
-	-s skip SNP positions from (<filename>) in format /^ChrID\	Pos/. VCF file with only SNP is OK.
+	-s skip SNP positions from (<filename>) in format /^ChrID\tPos/. VCF file with only SNP is OK.
 	-m minimal accepted MAPQ (50)
 	-l read length of reads (int) [Optional. Specify to override auto detected value.]
 	-o output prefix (./matrix).{count,ratio}.matrix and .{stat,info}
-	-c ChrID list file [Useful to analyse only autosomes]
+	-c ChrID list file [to specify a subset of chromosomes, one per line]
 	-q Use Qascii=64 for sam files instead of 33
 	-t Trim ChrID in ref fasta file to match alignment results (none) [use RegEx for s/\$ARG//;]
-	-b No 5s Pause for batch runs
 
 Should be set: i,r,o
-Better to have: b,s
+Better to have: s
 With reasonable defaults: m
 Up to you: c
 Histrical Reason: l,q,t
 
+补充：
+-q 没它就按33来，有它就按64来。
+-t 适用于参考序列是用"chr01"，但soap文件是用"01"。在华大遇到过人的soap文件，染色体名只有数字和X、Y的情况。
+
 All filters on input SAM/BAM file:
-1. samtools view -f 3 -F 1792
+1. samtools view -f 3 -F 1792	含义见上面“SAM FLAG”表格第一列的加号和减号。即必须有加号的项、没有减号的项。
 2. (CIAGR =~ /(\d+)M/) && ($1 != $READLEN);
 3. RNAME not in given Reference file and Chr List
 4. MRNM not '='

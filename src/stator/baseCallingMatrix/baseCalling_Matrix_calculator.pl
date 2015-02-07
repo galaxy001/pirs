@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 =pod
 Author: Hu Xuesong @ BGI <huxuesong@genomics.org.cn>
-Version: 0.1.2 @ 20140115
+Version: 0.1.5 @ 20140207
 =cut
 use strict;
 use warnings;
@@ -35,11 +35,10 @@ sub main::HELP_MESSAGE() {
 	$main::help =~ s|\n|\033[32;1m\n|g;
 	$main::ARG_DESC='[PROGRAM_ARG1 ...]' unless $main::ARG_DESC;
 	print STDERR <<EOH;
-\nUsage: \033[0;1m$0\033[0;0m [-OPTIONS [-MORE_OPTIONS]]
+\nUsage: \033[0;1m$0\033[0;0m -i xxx.bam -r ref.fa.gz -o xxx [-MORE_OPTIONS]
 
 The following single-character options are accepted:
-\033[32;1m$main::help\033[0;0mOptions may be merged together.
-Space is not required between options and their arguments.
+\033[32;1m$main::help\033[0;0m
 EOH
 }
 sub main::VERSION_MESSAGE() {
@@ -59,9 +58,9 @@ EOH
 	}
 }
 
-$main::VERSION=1.0.0;
-our $opts='i:r:o:l:s:c:t:m:qb';
-our($opt_i, $opt_o, $opt_r, $opt_l, $opt_s, $opt_c, $opt_t, $opt_q, $opt_m, $opt_b);
+$main::VERSION=1.0.1;
+our $opts='i:r:o:l:s:c:t:m:q';
+our($opt_i, $opt_o, $opt_r, $opt_l, $opt_s, $opt_c, $opt_t, $opt_q, $opt_m);
 
 #our $desc='';
 our $help=<<EOH;
@@ -71,10 +70,9 @@ our $help=<<EOH;
 \t-m minimal accepted MAPQ (50)
 \t-l read length of reads (int) [Optional. Specify to override auto detected value.]
 \t-o output prefix (./matrix).{count,ratio}.matrix and .{stat,info}
-\t-c ChrID list file [Useful to analyse only autosomes]
+\t-c ChrID list file [to specify a subset of chromosomes, one per line]
 \t-q Use Qascii=64 for sam files instead of 33
 \t-t Trim ChrID in ref fasta file to match alignment results (none) [use RegEx for s/\$ARG//;]
-\t-b No 5s Pause for batch runs
 EOH
 
 ShowHelp();
@@ -118,7 +116,6 @@ print STDERR "ChrID will be trimed by s/$opt_t//;\n" if $opt_t;
 print STDERR "ChrID list:[$opt_c]\n" if $opt_c;
 print STDERR "SNP skipping list:[$opt_s]\n" if $opt_s;
 print STDERR "SAM files with Qascii=64\n" if $opt_q;
-unless ($opt_b) {print STDERR "Wait 5 seconds to continue...\n"; sleep 5;}
 
 #my $start_time = [gettimeofday];
 #BEGIN
@@ -414,6 +411,7 @@ my @BaseQ;
 for my $base (@BaseOrder) {
 	push @BaseQ,"$base-$_" for (0..$MaxQ);
 }
+=pod
 $tmp .= "\n
 [Info]
 Date = $date
@@ -437,7 +435,8 @@ MismatchBase = $MisBase
 QB_Bases = $QBbase
 QB_Mismatches = $QBmis
 <<END
-
+=cut
+$tmp .= "\n
 [DistMatrix]
 #".join("\t",'Ref','Cycle',@BaseQ);
 print OA $tmp;
