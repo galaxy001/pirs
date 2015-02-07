@@ -1,5 +1,6 @@
 src/afterclean.lst
 
+.DS_Store
 *.bak
 *.md5
 ._*

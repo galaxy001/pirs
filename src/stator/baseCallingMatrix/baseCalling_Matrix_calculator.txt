@@ -54,7 +54,7 @@ Histrical Reason: l,q,t
 
 补充：
 -q 没它就按33来，有它就按64来。
--t 适用于参考序列是用"chr01"，但soap文件是用"01"。在华大遇到过人的soap文件，染色体名只有数字和X、Y的情况。
+-t 适用于参考序列是用"chr01"，但soap文件是用"01"的情况。在华大遇到过人的soap文件，染色体名只有数字和X、Y。此时 -t chr 即可。
 
 All filters on input SAM/BAM file:
 1. samtools view -f 3 -F 1792	含义见上面“SAM FLAG”表格第一列的加号和减号。即必须有加号的项、没有减号的项。
