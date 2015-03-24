@@ -67,7 +67,7 @@ our $help=<<EOH;
 \t-i Input Pair-End SAM/BAM files [used with "samtools view xxx"] 
 \t-r Reference FASTA file [.{gz,bz2} is OK]
 \t-s skip SNP positions from (<filename>) in format /^ChrID\\tPos/. VCF file with only SNP is OK.
-\t-m minimal accepted MAPQ (50)
+\t-m minimal accepted MAPQ (60)
 \t-l read length of reads (int) [Optional. Specify to override auto detected value.]
 \t-o output prefix (./matrix).{count,ratio}.matrix and .{stat,info}
 \t-c ChrID list file [to specify a subset of chromosomes, one per line]
@@ -107,7 +107,7 @@ unless ($opt_i) {
 	open( INSAM,"-|","$SAMTOOLSBIN view -f 3 -F 1792 -h $opt_i") or die "Error opening $opt_i: $!\n";
 }
 $opt_o='./matrix' if ! $opt_o;
-$opt_m=50 if (! $opt_m) or $opt_m < 0;
+$opt_m=60 if (! $opt_m) or $opt_m < 0;
 die "[x]-r $opt_r not exists !\n" unless -f $opt_r;
 if ($opt_s) {die "[x]-s $opt_s not exists !\n" unless -f $opt_s;}
 
