@@ -88,7 +88,7 @@ unless ($opt_i) {
 		warn "[!]Use user specified Read Length=",$opt_l,"\n";
 	} else {
 		my ($READLEN,$lines)=(0,0);
-		open IN,"-|","$SAMTOOLSBIN view -f 3 -F 1792 $opt_i" or die "Error opening $opt_i: $!\n";
+		open IN,"-|","$SAMTOOLSBIN view -f 3 -F 3840 $opt_i" or die "Error opening $opt_i: $!\n";
 		while (<IN>) {
 			#next if /^@\w\w\t\w\w:/;
 			#chomp;
@@ -104,7 +104,7 @@ unless ($opt_i) {
 		$opt_l = $READLEN;
 		warn "[!]Use detected Read Length=",$opt_l," from beginning $MAXREADStoCHECK proper lines of input file.\n";
 	}
-	open( INSAM,"-|","$SAMTOOLSBIN view -f 3 -F 1792 -h $opt_i") or die "Error opening $opt_i: $!\n";
+	open( INSAM,"-|","$SAMTOOLSBIN view -f 3 -F 3840 -h $opt_i") or die "Error opening $opt_i: $!\n";
 }
 $opt_o='./matrix' if ! $opt_o;
 $opt_m=60 if (! $opt_m) or $opt_m < 0;
@@ -611,5 +611,5 @@ TODO:
 add reference masked len.
 
 Example for bam file:
-samtools view -f 3 -F 1792 -h GA0146.sort.bam | ./pirs/baseCalling_Matrix_calculator -p sam -r ref.fa -s GA0146.SNPs.filter.vcf -l 125 -o GA0146.matrix -b >GA0146.matrix.log 2>GA0146.matrix.err
+samtools view -f 3 -F 3840 -h GA0146.sort.bam | ./pirs/baseCalling_Matrix_calculator -p sam -r ref.fa -s GA0146.SNPs.filter.vcf -l 125 -o GA0146.matrix -b >GA0146.matrix.log 2>GA0146.matrix.err
 # log should be empty in normal situation.
