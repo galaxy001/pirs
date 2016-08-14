@@ -1,26 +1,17 @@
 /**
- ** Copyright (c) 2008-2010 Illumina, Inc.
- **
- ** This software is covered by the "Illumina Genome Analyzer Software
- ** License Agreement" and the "Illumina Source Code License Agreement",
- ** and certain third party copyright/licenses, and any user of this
- ** source file is bound by the terms therein (see accompanying files
- ** Illumina_Genome_Analyzer_Software_License_Agreement.pdf and
- ** Illumina_Source_Code_License_Agreement.pdf and third party
- ** copyright/license notices).
- **
- ** This file is part of the Consensus Assessment of Sequence And VAriation
+ ** This file is based on the Consensus Assessment of Sequence And VAriation
  ** (CASAVA) software package.
  **
- ** \file MaskQvalsByEamss.cpp
+ ** \file ./CASAVA_v1.8.2/src/c++/lib/demultiplex/MaskQvalsByEamss.cpp
  **
  ** \brief Masks quality values of a read, using the EAMSS.
  **
  ** \author Come Raczy
+ **
+ ** \modifed_by Eric Biggers
+ **
+ ** \changed Use vectors instead fo strings; also got rid of the boost header.
  **/
-
-// Modified for pIRS: Use vectors instead fo strings; also got rid of the boost
-// header.
 
 #include <string>
 #include <vector>
