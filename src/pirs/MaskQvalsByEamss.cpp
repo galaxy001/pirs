@@ -8,7 +8,7 @@
  **
  ** \author Come Raczy
  **
- ** \modifed_by Eric Biggers
+ ** \rewrite Eric Biggers
  **
  ** \changed Use vectors instead fo strings; also got rid of the boost header.
  **/

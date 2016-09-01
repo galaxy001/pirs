@@ -8,7 +8,7 @@
  **
  ** \author Come Raczy
  **
- ** \modifed_by Eric Biggers
+ ** \rewrite Eric Biggers
  **
  ** \changed Pass qValues and baseCalls as C arrays (on the stack)
  **/
