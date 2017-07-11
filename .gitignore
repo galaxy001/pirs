@@ -34,3 +34,11 @@ core.*
 *.lai
 *.la
 *.a
+
+# Kdevelop files
+*.kdev4
+
+# Binaries
+indelstat_sam_bam
+pirs
+src/pirs/pirs
