@@ -257,9 +257,9 @@ static void pirs_simulate_usage()
 "                 Do not simulate GC bias.  The GC bias profile will not be\n"
 "                 used.\n"
 "\n"
-"  -o PREFIX, --output-prefix=PREFIX\n"
-"                 Use PREFIX as the prefix of the output files.  Default:\n"
-"                 \"pirs_reads\"\n"
+"  -o DIR, --output-directory=DIR\n"
+"                 Use DIR as the output directory. Default: :\n"
+"                 \".\"\n"
 "\n"
 "  -c TYPE, --output-file-type=TYPE\n"
 "                 The string \"text\" or \"gzip\" to specify the type of\n"
@@ -282,6 +282,9 @@ static void pirs_simulate_usage()
 "                 as use only 1 simulator thread (--threads=1, or configure\n"
 "                 with --disable-threads, or run on system with 4 or fewer\n"
 "                 processors).\n"
+"\n"
+"  -s NAME, --indiv-name=NAME\n"
+"                 Set sample name\n"
 "\n"
 "  -t, --threads=NUM_THREADS\n"
 "                 Use NUM_THREADS threads to simulate reads.  This option is\n"
@@ -324,7 +327,7 @@ enum {
 	OPTION_NO_INDELS,
 	OPTION_NO_GC_BIAS,
 };
-static const char *optstring = "l:x:m:v:jdB:I:G:e:A:M:Q:o:c:znS:t:qhV";
+static const char *optstring = "l:x:m:v:jdB:I:G:e:A:M:Q:o:c:znSs:t:qhV";
 static const struct option longopts[] = {
 	{"read-len",                    required_argument, NULL, 'l'},
 	{"coverage",                    required_argument, NULL, 'x'},
@@ -357,10 +360,11 @@ static const struct option longopts[] = {
 	{"no-gc-content-bias",          no_argument,       NULL, OPTION_NO_GC_BIAS},
 	{"output-file-type",		required_argument, NULL, 'c'},
 	{"compress",			no_argument,       NULL, 'z'},
-	{"output-prefix",		required_argument, NULL, 'o'},
+	{"output-directory",		optional_argument, NULL, 'o'},
 	{"no-logs",			no_argument,       NULL, 'n'},
 	{"no-log-files",		no_argument,       NULL, 'n'},
 	{"random-seed",		 	required_argument, NULL, 'S'},
+    {"indiv-name",		 	required_argument, NULL, 's'},
 	{"threads",			required_argument, NULL, 't'},
 	{"quiet",		 	no_argument, 	   NULL, 'q'},
 	{"help",			no_argument,	   NULL, 'h'},
@@ -392,7 +396,7 @@ SimulationParameters::SimulationParameters(int argc, char *argv[])
 	   write_log_files		(true),
 	   user_specified_random_seed   (false),
 	   num_simulator_threads	(-1),
-	   output_prefix		("pirs_reads")
+	   output_directory	   (".")
 {
 	argc--;
 	argv++;
@@ -503,7 +507,7 @@ SimulationParameters::SimulationParameters(int argc, char *argv[])
 			simulate_gc_bias = false;
 			break;
 		case 'o': 
-			output_prefix = optarg;
+			output_directory = optarg;
 			break;
 		case 'c': 
 			OutputStream::set_default_output_type(optarg);
@@ -536,6 +540,10 @@ SimulationParameters::SimulationParameters(int argc, char *argv[])
 				user_specified_random_seed = true;
 			}
 			break;
+        case 's': {
+            indiv_name = optarg;
+            break;
+        }
 		case 'q':
 			info_messages_fp = NULL;
 			break;
@@ -605,9 +613,9 @@ static const char *get_subst_error_algo_name(enum SubstitutionErrorAlgorithm alg
  */
 SimulationFiles::SimulationFiles(const SimulationParameters &params)
 {
-	char buf[params.output_prefix.length() + 50];
-	sprintf(buf, "%s_%d_%d", params.output_prefix.c_str(),
-		(int)params.read_len, (int)params.insert_len_mean);
+	char buf[params.output_directory.length() + params.indiv_name.length() + 50];
+	sprintf(buf, "%s/%s", params.output_directory.c_str(),
+		    params.indiv_name.c_str());
 	string prefix_long(buf);
 	const char *fasta_suffix = (params.simulate_quality_values) ? ".fq" : ".fa";
 
@@ -669,10 +677,9 @@ SimulationProfiles::~SimulationProfiles()
  */
 static void output_read(const Read &read, OutputStream &out_file)
 {
-	out_file.printf("%cread_%d_%"PRIu64"/%d\n",
+	out_file.printf("%c%s_read_%"PRIu64"/%d\n",
 		        (read.quality_vals.empty()) ? '>' : '@',
-			read.pair.insert_len_mean,
-			read.pair.pair_number, read.num_in_pair());
+                 read.indiv_name.c_str(), read.pair.pair_number, read.num_in_pair());
 	out_file.write(&read.seq[0], read.seq.size());
 	out_file.putc('\n');
 
@@ -1395,6 +1402,7 @@ static uint64_t simulate_read_pairs(const char *ref_seq, size_t ref_seq_len,
 			pair->insert_len_mean = params.insert_len_mean;
 			pair->quality_shift   = params.quality_shift;
 			pair->cyclicized      = params.jumping;
+            pair->set_indiv_name(params.indiv_name);
 		}
 		read_pair_free_queue.put(pair_set);
 		read_1_free_queue.put(new ReadSet());
@@ -1468,6 +1476,7 @@ static uint64_t simulate_read_pairs(const char *ref_seq, size_t ref_seq_len,
 	pair.insert_len_mean = params.insert_len_mean;
 	pair.quality_shift   = params.quality_shift;
 	pair.cyclicized      = params.jumping;
+    pair.set_indiv_name(params.indiv_name);
 
 	for (uint64_t i = 0; i < num_read_pairs; i++) {
 		while (!simulate_read_pair(pair, ref_seq, ref_seq_len,
@@ -1670,8 +1679,10 @@ static void begin_info_log(OutputStream &info_log,
 				: "(None)");
 	log_parameter(info_log, "Output type:                      %s\n",
 			OutputStream::get_default_file_type_str());
-	log_parameter(info_log, "Output prefix:                    %s\n",
-			params.output_prefix.c_str());
+	log_parameter(info_log, "Output directory:                 %s\n",
+			params.output_directory.c_str());
+    log_parameter(info_log, "Indiv name:                       %s\n",
+			params.indiv_name.c_str());
 	log_parameter(info_log, "Simulate quality values:          %s\n",
 			bool_to_str(params.simulate_quality_values));
 		
