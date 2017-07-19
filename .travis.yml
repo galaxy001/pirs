@@ -8,7 +8,6 @@ os:
 addons:
   apt:
     packages:
-    - zlib
-    - pthread
+    - zlibc
 install: make install
 script: make
