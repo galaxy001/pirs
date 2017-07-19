@@ -35,10 +35,10 @@ public:
 	vector<char>   ref_read;
 	vector<char>   quality_vals;
 	vector<Indel>  indels;
-	vector<int>	error_pos;
-	ReadPair	  &pair;
-	int			mask_end_len;
-	string		 indiv_name;
+	vector<int>    error_pos;
+	ReadPair      &pair;
+	int            mask_end_len;
+	string         indiv_name;
 
 	Read(ReadPair &_pair)
 		: pair(_pair), mask_end_len(0)
@@ -53,17 +53,17 @@ public:
  */
 class ReadPair {
 public:
-	Read		 read_1;
-	Read		 read_2;
+	Read         read_1;
+	Read         read_2;
 	const char  *ref_seq_id;
 	const char  *ref_filename;
-	int		  insert_len;
-	size_t	   ref_seq_pos;
-	uint64_t	 pair_number;
-	int		  insert_len_mean;
-	int		  quality_shift;
-	bool		 reverse_order;
-	bool		 cyclicized;
+	int          insert_len;
+	size_t       ref_seq_pos;
+	uint64_t     pair_number;
+	int          insert_len_mean;
+	int          quality_shift;
+	bool         reverse_order;
+	bool         cyclicized;
 
 	ReadPair()
 		: read_1(*this), read_2(*this)

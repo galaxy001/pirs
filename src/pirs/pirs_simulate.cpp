@@ -61,13 +61,13 @@ public:
 	uint64_t masked_bases;
 
 	void init() {
-		ins_count		 = 0;
-		ins_sum		   = 0;
-		del_count		 = 0;
-		del_sum		   = 0;
-		num_inserts	   = 0;
+		ins_count         = 0;
+		ins_sum           = 0;
+		del_count         = 0;
+		del_sum           = 0;
+		num_inserts       = 0;
 		discarded_inserts = 0;
-		masked_bases	  = 0;
+		masked_bases      = 0;
 	}
 	void init(unsigned _read_len) {
 		init();
@@ -94,13 +94,13 @@ public:
 		for (it = other.insert_len_distr.begin(); it != other.insert_len_distr.end(); it++)
 			insert_len_distr[it->first] += it->second;
 
-		ins_count		 += other.ins_count;
-		ins_sum		   += other.ins_sum;
-		del_count		 += other.del_count;
-		del_sum		   += other.del_sum;
-		num_inserts	   += other.num_inserts;
+		ins_count         += other.ins_count;
+		ins_sum           += other.ins_sum;
+		del_count         += other.del_count;
+		del_sum           += other.del_sum;
+		num_inserts       += other.num_inserts;
 		discarded_inserts += other.discarded_inserts;
-		masked_bases	  += other.masked_bases;
+		masked_bases      += other.masked_bases;
 	}
 };
 
@@ -133,170 +133,170 @@ static void pirs_simulate_usage()
 		"\n"
 		"OPTIONS:\n"
 		"  -l LEN, --read-len=LEN\n"
-		"				Generate reads having a length of LEN.  Default: 100\n"
+		"                Generate reads having a length of LEN.  Default: 100\n"
 		"\n"
 		"  -x VAL, --coverage=VAL\n"
-		"				 Set the average sequencing coverage (sometimes called depth).\n"
-		"				 It may be either a floating-point number or an integer.\n"
+		"                 Set the average sequencing coverage (sometimes called depth).\n"
+		"                 It may be either a floating-point number or an integer.\n"
 		"\n"
 		"  -m LEN, --insert-len-mean=LEN\n"
-		"				 Generate inserts (fragments) having an average length of LEN.\n"
-		"				 Default: 180\n"
+		"                 Generate inserts (fragments) having an average length of LEN.\n"
+		"                 Default: 180\n"
 		"\n"
 		"  -v LEN, --insert-len-sd=LEN\n"
-		"				 Set the standard deviation of the insert (fragment) length.\n"
-		"				 Default: 10% of insert length mean.\n"
+		"                 Set the standard deviation of the insert (fragment) length.\n"
+		"                 Default: 10% of insert length mean.\n"
 		"\n"
 		"  -j, --jumping, --cyclicize\n"
-		"				 Make the paired-end reads face away from either other, as\n"
-		"				 in a jumping library.  Default: the reads face towards each\n"
-		"				 other.\n"
+		"                 Make the paired-end reads face away from either other, as\n"
+		"                 in a jumping library.  Default: the reads face towards each\n"
+		"                 other.\n"
 		"\n"
 		"  -d, --diploid\n"
-		"				 This option asserts that reads are being simulated from a\n"
-		"				 diploid genome.  It causes the program to abort if there\n"
-		"				 are not exactly two reference sequences; in addition, the\n"
-		"				 coverage is divided in half, since the two reference\n"
-		"				 sequences are in reality the same genome.  This option\n"
-		"				 is not required to simulate diploid reads, but you must\n"
-		"				 set the coverage correctly otherwise (it will be half\n"
-		"				 as much as you think).\n"
+		"                 This option asserts that reads are being simulated from a\n"
+		"                 diploid genome.  It causes the program to abort if there\n"
+		"                 are not exactly two reference sequences; in addition, the\n"
+		"                 coverage is divided in half, since the two reference\n"
+		"                 sequences are in reality the same genome.  This option\n"
+		"                 is not required to simulate diploid reads, but you must\n"
+		"                 set the coverage correctly otherwise (it will be half\n"
+		"                 as much as you think).\n"
 		"\n"
 		"  -B FILE, --base-calling-profile=FILE, --subst-error-profile=FILE\n"
-		"				 Use FILE as the base-calling profile.  This profile will be\n"
-		"				 used to simulate substitution errors.  Default:\n"
-		"				 "DEFAULT_BASE_CALLING_PROFILE"\n"
+		"                 Use FILE as the base-calling profile.  This profile will be\n"
+		"                 used to simulate substitution errors.  Default:\n"
+		"                 "DEFAULT_BASE_CALLING_PROFILE"\n"
 		"\n"
 		"  -I FILE, --indel-error-profile=FILE, --indel-profile=FILE\n"
-		"				 Use FILE as the indel-error profile.  This profile will be\n"
-		"				 used to simulate insertions and deletions in the reads that\n"
-		"				 are artifacts of the sequencing process.  Default:\n"
-		"				 "DEFAULT_INDEL_PROFILE"\n"
+		"                 Use FILE as the indel-error profile.  This profile will be\n"
+		"                 used to simulate insertions and deletions in the reads that\n"
+		"                 are artifacts of the sequencing process.  Default:\n"
+		"                 "DEFAULT_INDEL_PROFILE"\n"
 		"\n"
 		"  -G FILE, --gc-bias-profile=FILE, --gc-content-bias-profile=FILE\n"
-		"				 Use FILE as the GC content bias profile.  This profile will\n"
-		"				 adjust the read coverage based on the GC content of\n"
-		"				 fragments.  Defaults:\n"
-		"				 "DEFAULT_GC_BIAS_PROFILE_100",\n"
-		"				 "DEFAULT_GC_BIAS_PROFILE_150",\n"
-		"				 "DEFAULT_GC_BIAS_PROFILE_200",\n"
-		"				 depending on the mean insert length.\n"
+		"                 Use FILE as the GC content bias profile.  This profile will\n"
+		"                 adjust the read coverage based on the GC content of\n"
+		"                 fragments.  Defaults:\n"
+		"                 "DEFAULT_GC_BIAS_PROFILE_100",\n"
+		"                 "DEFAULT_GC_BIAS_PROFILE_150",\n"
+		"                 "DEFAULT_GC_BIAS_PROFILE_200",\n"
+		"                 depending on the mean insert length.\n"
 		"\n"
 		"  -e FILE, --error-rate=RATE, --subst-error-rate=RATE\n"
-		"				 Set the substitution error rate.  The base-calling profile\n"
-		"				 will still be used, but the average frequency of errors will\n"
-		"				 be changed to RATE.  Set to 0 to disable substitution errors\n"
-		"				 completely.  In that case, the base-calling profile will not\n"
-		"				 be used.  Default: default error rate of base-calling\n"
-		"				 profile.\n"
+		"                 Set the substitution error rate.  The base-calling profile\n"
+		"                 will still be used, but the average frequency of errors will\n"
+		"                 be changed to RATE.  Set to 0 to disable substitution errors\n"
+		"                 completely.  In that case, the base-calling profile will not\n"
+		"                 be used.  Default: default error rate of base-calling\n"
+		"                 profile.\n"
 		"\n"
-		"				 Note: since pIRS parameterizes the error rate by\n"
-		"				 several parameters, it is very difficult to determine exactly\n"
-		"				 what needs to be done to make the error rate be a given\n"
-		"				 value.  We try to adjust the probabilities of getting each\n"
-		"				 quality score in order to accomodate the user-supplied error\n"
-		"				 rate.  However, depending on your input sequences, the actual\n"
-		"				 error rate simulated by pIRS could be off by 20% or more.\n"
-		"				 Please check the informational output to see the final error\n"
-		"				 rate that was actually simulated.\n"
+		"                 Note: since pIRS parameterizes the error rate by\n"
+		"                 several parameters, it is very difficult to determine exactly\n"
+		"                 what needs to be done to make the error rate be a given\n"
+		"                 value.  We try to adjust the probabilities of getting each\n"
+		"                 quality score in order to accomodate the user-supplied error\n"
+		"                 rate.  However, depending on your input sequences, the actual\n"
+		"                 error rate simulated by pIRS could be off by 20% or more.\n"
+		"                 Please check the informational output to see the final error\n"
+		"                 rate that was actually simulated.\n"
 		"\n"
 		"  -A ALGO, --substitution-error-algorithm=ALGO, --subst-error-algo=ALGO\n"
-		"				 Set the algorithm used for simulating substitition errors.\n"
-		"				 It may be set to the string \"dist\" or \"qtrans\".  The\n"
-		"				 default is \"qtrans\".\n"
+		"                 Set the algorithm used for simulating substitition errors.\n"
+		"                 It may be set to the string \"dist\" or \"qtrans\".  The\n"
+		"                 default is \"qtrans\".\n"
 		"\n"
-		"				 The \"dist\" algorithm looks up the substitution error rate\n"
-		"				 for each base pair based on the current cycle and the true\n"
-		"				 base.  This lookup produces a quality score and a called base\n"
-		"				 that may or may not be the same as the true base.  In the\n"
-		"				 base-calling profile, the matrix we use is marked as the\n"
-		"				 [DistMatrix].\n"
+		"                 The \"dist\" algorithm looks up the substitution error rate\n"
+		"                 for each base pair based on the current cycle and the true\n"
+		"                 base.  This lookup produces a quality score and a called base\n"
+		"                 that may or may not be the same as the true base.  In the\n"
+		"                 base-calling profile, the matrix we use is marked as the\n"
+		"                 [DistMatrix].\n"
 		"\n"
-		"				 The \"qtrans\" algorithm is a Markov-chain model based on the\n"
-		"				 previous quality score and current cycle.  The next quality\n"
-		"				 score is looked up with a certain probability based on these\n"
-		"				 parameters.  The matrix used for this is marked as\n"
-		"				 [QTransMatrix] in the base-calling profile. Then, the the\n"
-		"				 DistMatrix is used to find a called base for the quality score.\n"
-		"				 The DistMatrix is also used to call the base in the first\n"
-		"				 cycle.\n"
+		"                 The \"qtrans\" algorithm is a Markov-chain model based on the\n"
+		"                 previous quality score and current cycle.  The next quality\n"
+		"                 score is looked up with a certain probability based on these\n"
+		"                 parameters.  The matrix used for this is marked as\n"
+		"                 [QTransMatrix] in the base-calling profile. Then, the the\n"
+		"                 DistMatrix is used to find a called base for the quality score.\n"
+		"                 The DistMatrix is also used to call the base in the first\n"
+		"                 cycle.\n"
 		"\n"
 		"  -M MODE, --mask=MODE, --eamss=MODE\n"
-		"				 Use the EAMSS algorithm for masking read quality.  MODE may be\n"
-		"				 the string \"quality\" or \"lowercase\".  The EAMSS algorithm\n"
-		"				 identifies low-quality, GC-rich regions near the ends of reads.\n"
-		"				 \"quality\" mode will change the quality scores on these\n"
-		"				 regions to (2 + quality_shift), while \"lowercase\" mode\n"
-		"				 will change the base pairs to lower case, but not change\n"
-		"				 the quality values.  Default: Do not use EAMSS.\n"
+		"                 Use the EAMSS algorithm for masking read quality.  MODE may be\n"
+		"                 the string \"quality\" or \"lowercase\".  The EAMSS algorithm\n"
+		"                 identifies low-quality, GC-rich regions near the ends of reads.\n"
+		"                 \"quality\" mode will change the quality scores on these\n"
+		"                 regions to (2 + quality_shift), while \"lowercase\" mode\n"
+		"                 will change the base pairs to lower case, but not change\n"
+		"                 the quality values.  Default: Do not use EAMSS.\n"
 		"\n"
 		"  -Q VAL, --quality-shift=VAL, --phred-offset=VAL\n"
-		"				 Set the ASCII shift of the quality value (usually 64 or 33 for\n"
-		"				 Illumina data).  Default: 33\n"
+		"                 Set the ASCII shift of the quality value (usually 64 or 33 for\n"
+		"                 Illumina data).  Default: 33\n"
 		"\n"
 		"  --no-quality-values\n"
 		"  --fasta\n"
-		"				 Do not simulate quality values.  The simulated reads will be\n"
-		"				 written as a FASTA file rather than a FASTQ file.\n"
-		"				 Substitution errors may still be done; if you do not want\n"
-		"				 to simulate any substition errors, provide --error-rate=0 or\n"
-		"				 --no-substitution-errors.\n"
+		"                 Do not simulate quality values.  The simulated reads will be\n"
+		"                 written as a FASTA file rather than a FASTQ file.\n"
+		"                 Substitution errors may still be done; if you do not want\n"
+		"                 to simulate any substition errors, provide --error-rate=0 or\n"
+		"                 --no-substitution-errors.\n"
 		"\n"
 		"  --no-subst-errors\n"
 		"  --no-substitution-errors\n"
-		"				 Do not simulate substitution errors.  Equivalent to\n"
-		"				 --error-rate=0.\n"
+		"                 Do not simulate substitution errors.  Equivalent to\n"
+		"                 --error-rate=0.\n"
 		"\n"
 		"  --no-indels\n"
 		"  --no-indel-errors\n"
-		"				 Do not simulate indels.  The indel error profile will not be\n"
-		"				 used.\n"
+		"                 Do not simulate indels.  The indel error profile will not be\n"
+		"                 used.\n"
 		"\n"
 		"  --no-gc-bias\n"
 		"  --no-gc-content-bias\n"
-		"				 Do not simulate GC bias.  The GC bias profile will not be\n"
-		"				 used.\n"
+		"                 Do not simulate GC bias.  The GC bias profile will not be\n"
+		"                 used.\n"
 		"\n"
 		"  -o DIR, --output-directory=DIR\n"
-		"				 Use DIR as the output directory. Default: :\n"
-		"				 \".\"\n"
+		"                 Use DIR as the output directory. Default: :\n"
+		"                 \".\"\n"
 		"\n"
 		"  -c TYPE, --output-file-type=TYPE\n"
-		"				 The string \"text\" or \"gzip\" to specify the type of\n"
-		"				 the output FASTQ files containing the simulated reads\n"
-		"				 of the genome, as well as the log files.  Default: \"text\"\n"
+		"                 The string \"text\" or \"gzip\" to specify the type of\n"
+		"                 the output FASTQ files containing the simulated reads\n"
+		"                 of the genome, as well as the log files.  Default: \"text\"\n"
 		"\n"
 		"  -z, --compress\n"
-		"				 Equivalent to -c gzip.\n"
+		"                 Equivalent to -c gzip.\n"
 		"\n"
 		"  -n, --no-logs, --no-log-files\n"
-		"				 Do not write the log files.\n"
+		"                 Do not write the log files.\n"
 		"\n"
 		"  -S SEED, --random-seed=SEED\n"
-		"				 Use SEED as the random seed. Default:\n"
-		"				 time(NULL) * getpid().  Note: If pIRS was not compiled with\n"
-		"				 --disable-threads, each thread actually uses its own random\n"
-		"				 number generator that is seeded by this base seed added to\n"
-		"				 the thread number; also, if you need pIRS's output to be\n"
-		"				 exactly reproducible, you must specify the random seed as well\n"
-		"				 as use only 1 simulator thread (--threads=1, or configure\n"
-		"				 with --disable-threads, or run on system with 4 or fewer\n"
-		"				 processors).\n"
+		"                 Use SEED as the random seed. Default:\n"
+		"                 time(NULL) * getpid().  Note: If pIRS was not compiled with\n"
+		"                 --disable-threads, each thread actually uses its own random\n"
+		"                 number generator that is seeded by this base seed added to\n"
+		"                 the thread number; also, if you need pIRS's output to be\n"
+		"                 exactly reproducible, you must specify the random seed as well\n"
+		"                 as use only 1 simulator thread (--threads=1, or configure\n"
+		"                 with --disable-threads, or run on system with 4 or fewer\n"
+		"                 processors).\n"
 		"\n"
 		"  -s NAME, --indiv-name=NAME\n"
-		"				 Set sample name\n"
+		"                 Set sample name\n"
 		"\n"
 		"  -t, --threads=NUM_THREADS\n"
-		"				 Use NUM_THREADS threads to simulate reads.  This option is\n"
-		"				 not available if pIRS was compiled with the --disable-threads\n"
-		"				 option.  Default: number of processors minus 2 if writing\n"
-		"				 uncompressed output, or number of processors minus 3 if\n"
-		"				 writing compressed output, or 1 if there are not this many\n"
-		"				 processors.\n"
+		"                 Use NUM_THREADS threads to simulate reads.  This option is\n"
+		"                 not available if pIRS was compiled with the --disable-threads\n"
+		"                 option.  Default: number of processors minus 2 if writing\n"
+		"                 uncompressed output, or number of processors minus 3 if\n"
+		"                 writing compressed output, or 1 if there are not this many\n"
+		"                 processors.\n"
 		"\n"
-		"  -q, --quiet	Do not print informational messages.\n"
+		"  -q, --quiet    Do not print informational messages.\n"
 		"\n"
-		"  -h, --help	 Show this help and exit.\n"
+		"  -h, --help     Show this help and exit.\n"
 		"\n"
 		"  -V, --version  Show version information and exit."
 		;
@@ -308,14 +308,14 @@ static void pirs_simulate_usage_short()
 	const char *usage_str_short =
 		"Usage: pirs simulate [OPTIONS...] REFERENCE.FASTA...\n"
 		"Options:\n"
-		"  -l LEN	 Set read length\n"
-		"  -x COV	 Set coverage\n"
-		"  -m MEAN	Set insert length mean\n"
+		"  -l LEN     Set read length\n"
+		"  -x COV     Set coverage\n"
+		"  -m MEAN    Set insert length mean\n"
 		"  -v STDDEV  Set insert length standard deviation\n"
-		"  -j		 Simulate jumping library\n"
-		"  -d		 Simulate from diploid genome produced by `pirs diploid'\n"
+		"  -j         Simulate jumping library\n"
+		"  -d         Simulate from diploid genome produced by `pirs diploid'\n"
 		"  -o PREFIX  Set output prefix\n"
-		"  -h		 Show detailed help\n"
+		"  -h         Show detailed help\n"
 		"Not all options are shown here.  Try `pirs simulate -h' for the full help."
 		;
 	puts(usage_str_short);
@@ -329,40 +329,40 @@ enum {
 };
 static const char *optstring = "l:x:m:v:jdB:I:G:e:A:M:Q:o:c:znSs:t:qhV";
 static const struct option longopts[] = {
-	{"read-len",					required_argument, NULL, 'l'},
-	{"coverage",					required_argument, NULL, 'x'},
-	{"insert-len-mean",			 required_argument, NULL, 'm'},
-	{"insert-len-sd",			   required_argument, NULL, 'v'},
-	{"jumping",					 no_argument,	   NULL, 'j'},
-	{"diploid",					 no_argument,	   NULL, 'd'},
-	{"cyclicize",				   no_argument,	   NULL, 'j'},
-	{"base-calling-profile",		required_argument, NULL, 'B'},
-	{"subst-error-profile",		 required_argument, NULL, 'B'},
-	{"indel-profile",			   required_argument, NULL, 'I'},
-	{"indel-error-profile",		 required_argument, NULL, 'I'},
-	{"gc-bias-profile",			 required_argument, NULL, 'G'},
-	{"gc-content-bias-profile",	 required_argument, NULL, 'G'},
-	{"error-rate",				  required_argument, NULL, 'e'},
-	{"subst-error-rate",			required_argument, NULL, 'e'},
+	{"read-len",                    required_argument, NULL, 'l'},
+	{"coverage",                    required_argument, NULL, 'x'},
+	{"insert-len-mean",             required_argument, NULL, 'm'},
+	{"insert-len-sd",               required_argument, NULL, 'v'},
+	{"jumping",                     no_argument,       NULL, 'j'},
+	{"diploid",                     no_argument,       NULL, 'd'},
+	{"cyclicize",                   no_argument,       NULL, 'j'},
+	{"base-calling-profile",        required_argument, NULL, 'B'},
+	{"subst-error-profile",         required_argument, NULL, 'B'},
+	{"indel-profile",               required_argument, NULL, 'I'},
+	{"indel-error-profile",         required_argument, NULL, 'I'},
+	{"gc-bias-profile",             required_argument, NULL, 'G'},
+	{"gc-content-bias-profile",     required_argument, NULL, 'G'},
+	{"error-rate",                  required_argument, NULL, 'e'},
+	{"subst-error-rate",            required_argument, NULL, 'e'},
 	{"substitition-error-algorithm",required_argument, NULL, 'A'},
-	{"subst-error-algo",			required_argument, NULL, 'A'},
-	{"mask",						required_argument, NULL, 'M'},
-	{"eamss",					   required_argument, NULL, 'M'},
-	{"quality-shift",			   required_argument, NULL, 'Q'},
-	{"phred-offset",				required_argument, NULL, 'Q'},
-	{"no-quality-values",		   no_argument,	   NULL, OPTION_NO_QUALITY_VALUES},
-	{"fasta",					   no_argument,	   NULL, OPTION_NO_QUALITY_VALUES},
-	{"no-subst-errors",			 no_argument,	   NULL, OPTION_NO_SUBSTITUTION_ERRORS},
-	{"no-substitution-errors",	  no_argument,	   NULL, OPTION_NO_SUBSTITUTION_ERRORS},
-	{"no-indels",				   no_argument,	   NULL, OPTION_NO_INDELS},
-	{"no-indel-errors",			 no_argument,	   NULL, OPTION_NO_INDELS},
-	{"no-gc-bias",				  no_argument,	   NULL, OPTION_NO_GC_BIAS},
-	{"no-gc-content-bias",		  no_argument,	   NULL, OPTION_NO_GC_BIAS},
+	{"subst-error-algo",            required_argument, NULL, 'A'},
+	{"mask",                        required_argument, NULL, 'M'},
+	{"eamss",                       required_argument, NULL, 'M'},
+	{"quality-shift",               required_argument, NULL, 'Q'},
+	{"phred-offset",                required_argument, NULL, 'Q'},
+	{"no-quality-values",           no_argument,       NULL, OPTION_NO_QUALITY_VALUES},
+	{"fasta",                       no_argument,       NULL, OPTION_NO_QUALITY_VALUES},
+	{"no-subst-errors",             no_argument,       NULL, OPTION_NO_SUBSTITUTION_ERRORS},
+	{"no-substitution-errors",      no_argument,       NULL, OPTION_NO_SUBSTITUTION_ERRORS},
+	{"no-indels",                   no_argument,       NULL, OPTION_NO_INDELS},
+	{"no-indel-errors",             no_argument,       NULL, OPTION_NO_INDELS},
+	{"no-gc-bias",                  no_argument,       NULL, OPTION_NO_GC_BIAS},
+	{"no-gc-content-bias",          no_argument,       NULL, OPTION_NO_GC_BIAS},
 	{"output-file-type",		required_argument, NULL, 'c'},
-	{"compress",			no_argument,	   NULL, 'z'},
+	{"compress",			no_argument,       NULL, 'z'},
 	{"output-directory",		optional_argument, NULL, 'o'},
-	{"no-logs",			no_argument,	   NULL, 'n'},
-	{"no-log-files",		no_argument,	   NULL, 'n'},
+	{"no-logs",			no_argument,       NULL, 'n'},
+	{"no-log-files",		no_argument,       NULL, 'n'},
 	{"random-seed",		 	required_argument, NULL, 'S'},
 	{"indiv-name",		 	required_argument, NULL, 's'},
 	{"threads",			required_argument, NULL, 't'},
@@ -1397,11 +1397,11 @@ static uint64_t simulate_read_pairs(const char *ref_seq, size_t ref_seq_len,
 		ReadPairSet *pair_set = new ReadPairSet();
 		for (size_t j = 0; j < READS_PER_SET; j++) {
 			ReadPair *pair = &pair_set->pairs[j];
-			pair->ref_seq_id	  = ref_seq_id;
-			pair->ref_filename	= ref_filename;
+			pair->ref_seq_id      = ref_seq_id;
+			pair->ref_filename    = ref_filename;
 			pair->insert_len_mean = params.insert_len_mean;
 			pair->quality_shift   = params.quality_shift;
-			pair->cyclicized	  = params.jumping;
+			pair->cyclicized      = params.jumping;
 			pair->set_indiv_name(params.indiv_name);
 		}
 		read_pair_free_queue.put(pair_set);
@@ -1471,11 +1471,11 @@ static uint64_t simulate_read_pairs(const char *ref_seq, size_t ref_seq_len,
 
 	RandomBitGenerator rgen(params.random_seed);
 	ReadPair pair;
-	pair.ref_seq_id	  = ref_seq_id;
-	pair.ref_filename	= ref_filename;
+	pair.ref_seq_id      = ref_seq_id;
+	pair.ref_filename    = ref_filename;
 	pair.insert_len_mean = params.insert_len_mean;
 	pair.quality_shift   = params.quality_shift;
-	pair.cyclicized	  = params.jumping;
+	pair.cyclicized      = params.jumping;
 	pair.set_indiv_name(params.indiv_name);
 
 	for (uint64_t i = 0; i < num_read_pairs; i++) {
@@ -1638,68 +1638,68 @@ static void begin_info_log(OutputStream &info_log,
 	info("Beginning simulation with the following parameters:\n");
 	info("\n");
 
-	log_parameter(info_log, "Read length:					  %d\n",
+	log_parameter(info_log, "Read length:                      %d\n",
 				  params.read_len);
-	log_parameter(info_log, "Insert length mean:			   %g\n",
+	log_parameter(info_log, "Insert length mean:               %g\n",
 				  params.insert_len_mean);
 	log_parameter(info_log, "Insert length standard deviation: %g\n",
 				  params.insert_len_sd);
-	log_parameter(info_log, "Coverage:						 %g\n",
+	log_parameter(info_log, "Coverage:                         %g\n",
 				  params.coverage);
-	log_parameter(info_log, "Diploid:						  %s\n",
+	log_parameter(info_log, "Diploid:                          %s\n",
 				  bool_to_str(params.diploid));
-	log_parameter(info_log, "Cyclized (jumping library):	   %s\n",
+	log_parameter(info_log, "Cyclized (jumping library):       %s\n",
 				  bool_to_str(params.jumping));
-	log_parameter(info_log, "Simulate substitution errors:	 %s\n",
+	log_parameter(info_log, "Simulate substitution errors:     %s\n",
 				  bool_to_str(params.simulate_substitution_errors));
 	if (params.error_rate == -1.0)
-		log_parameter(info_log, "Substitution error rate:		  default of base-calling profile\n");
+		log_parameter(info_log, "Substitution error rate:          default of base-calling profile\n");
 	else
-		log_parameter(info_log, "Substitution error rate:		  %g\n",
+		log_parameter(info_log, "Substitution error rate:          %g\n",
 					  params.error_rate);
-	log_parameter(info_log, "Base-calling profile:			 %s\n",
+	log_parameter(info_log, "Base-calling profile:             %s\n",
 				  params.simulate_substitution_errors ?
 				  profiles.base_calling_profile->filename.c_str()
 				  : "(None)");
-	log_parameter(info_log, "Substitution error algorithm:	 %s\n",
+	log_parameter(info_log, "Substitution error algorithm:     %s\n",
 				  params.simulate_substitution_errors ?
 				  get_subst_error_algo_name(params.subst_error_algo)
 				  : "(None)");
-	log_parameter(info_log, "Simulate InDel errors:			%s\n",
+	log_parameter(info_log, "Simulate InDel errors:            %s\n",
 				  bool_to_str(params.simulate_indels));
-	log_parameter(info_log, "InDel error profile:			  %s\n",
+	log_parameter(info_log, "InDel error profile:              %s\n",
 				  params.simulate_indels ?
 				  profiles.indel_profile->filename.c_str()
 				  : "(None)");
-	log_parameter(info_log, "Simulate GC content bias:		 %s\n",
+	log_parameter(info_log, "Simulate GC content bias:         %s\n",
 				  bool_to_str(params.simulate_gc_bias));
-	log_parameter(info_log, "GC bias profile:				  %s\n",
+	log_parameter(info_log, "GC bias profile:                  %s\n",
 				  params.simulate_gc_bias ?
 				  profiles.gc_bias_profile->filename.c_str()
 				  : "(None)");
-	log_parameter(info_log, "Output type:					  %s\n",
+	log_parameter(info_log, "Output type:                      %s\n",
 				  OutputStream::get_default_file_type_str());
-	log_parameter(info_log, "Output directory:				 %s\n",
+	log_parameter(info_log, "Output directory:                 %s\n",
 				  params.output_directory.c_str());
-	log_parameter(info_log, "Indiv name:					   %s\n",
+	log_parameter(info_log, "Indiv name:                       %s\n",
 				  params.indiv_name.c_str());
-	log_parameter(info_log, "Simulate quality values:		  %s\n",
+	log_parameter(info_log, "Simulate quality values:          %s\n",
 				  bool_to_str(params.simulate_quality_values));
 
 	if (params.simulate_quality_values) {
-		log_parameter(info_log, "ASCII shift of quality value	  %d\n",
+		log_parameter(info_log, "ASCII shift of quality value      %d\n",
 					  params.quality_shift);
 	}
-	log_parameter(info_log, "Mode of mask quality:			 %s\n",
+	log_parameter(info_log, "Mode of mask quality:             %s\n",
 				  casava::demultiplex::get_quality_mask_mode_name(params.quality_mask_mode));
 
-	log_parameter(info_log, "Random seed:					  %"PRIu64"\n",
+	log_parameter(info_log, "Random seed:                      %"PRIu64"\n",
 				  params.random_seed);
 #ifdef ENABLE_THREADS
-	log_parameter(info_log, "Number of simulator threads:	  %d\n",
+	log_parameter(info_log, "Number of simulator threads:      %d\n",
 				  params.num_simulator_threads);
 #else
-	log_parameter(info_log, "Number of simulator threads:	  1 (no support for threads)\n");
+	log_parameter(info_log, "Number of simulator threads:      1 (no support for threads)\n");
 #endif
 	if (info_log.is_open()) {
 		info_log.puts("#\n"
@@ -1721,10 +1721,10 @@ void pirs_simulate(int argc, char *argv[])
 
 	SimulationParameters params(argc, argv);
 
-	info("Program:		"PROGRAM "\n");
-	info("Version:		"VERSION "\n");
-	info("Author:		 "AUTHOR "\n");
-	info("Contact:		"CONTACT "\n");
+	info("Program:        "PROGRAM "\n");
+	info("Version:        "VERSION "\n");
+	info("Author:         "AUTHOR "\n");
+	info("Contact:        "CONTACT "\n");
 	info("Compile Date:   "__DATE__ " time: " __TIME__ "\n");
 	info("Current time:   %s", ctime(&start_time));
 	info("Command line:   %s\n", get_command_line());
@@ -1772,32 +1772,32 @@ void pirs_simulate(int argc, char *argv[])
 	uint64_t num_bases = num_read_pairs * params.read_len * 2;
 	uint64_t num_subst_errors = sum_array(counters.error_pos_distr, params.read_len * 2);
 
-	info("Bases in reference sequences:	%"PRIu64"\n",
+	info("Bases in reference sequences:    %"PRIu64"\n",
 		 total_seq_len);
-	info("Read pairs simulated:			%"PRIu64"\n",
+	info("Read pairs simulated:            %"PRIu64"\n",
 		 num_read_pairs);
-	info("Bases in reads:				  %"PRIu64"\n",
+	info("Bases in reads:                  %"PRIu64"\n",
 		 num_bases);
-	info("Coverage:						%.2f\n",
+	info("Coverage:                        %.2f\n",
 		 double(num_bases) / double(total_seq_len)
 		 * (params.diploid ? params.num_input_refs : 1.0));
-	info("Substitution error count:		%"PRIu64"\n",
+	info("Substitution error count:        %"PRIu64"\n",
 		 num_subst_errors);
 	info("Average substitution error rate: %.3f%%\n",
 		 100 * double(num_subst_errors) / num_bases);
-	info("Insertion count:				 %"PRIu64"\n",
+	info("Insertion count:                 %"PRIu64"\n",
 		 counters.ins_count);
-	info("Deletion count:				  %"PRIu64"\n",
+	info("Deletion count:                  %"PRIu64"\n",
 		 counters.del_count);
-	info("Average insertion rate:		  %.5f%%\n",
+	info("Average insertion rate:          %.5f%%\n",
 		 100 * double(counters.ins_count) / num_bases);
-	info("Average deletion rate:		   %.5f%%\n",
+	info("Average deletion rate:           %.5f%%\n",
 		 100 * double(counters.del_count) / num_bases);
-	info("Average insertion length:		%.2f\n",
+	info("Average insertion length:        %.2f\n",
 		 counters.ins_count ?
 		 double(counters.ins_sum) / counters.ins_count
 		 : 0.0);
-	info("Average deletion length:		 %.2f\n",
+	info("Average deletion length:         %.2f\n",
 		 counters.del_count ?
 		 double(counters.del_sum) / counters.del_count
 		 : 0.0);
@@ -1807,14 +1807,14 @@ void pirs_simulate(int argc, char *argv[])
 	info("\n");
 
 	info("The simulated reads are in the files:\n");
-	info("	%s\n", files.out_file_1.s_filename);
-	info("	%s\n", files.out_file_2.s_filename);
+	info("    %s\n", files.out_file_1.s_filename);
+	info("    %s\n", files.out_file_2.s_filename);
 
 	if (files.info_log_file.is_open()) {
 		info("\n");
 		info("Information about each simulated read has been logged to "
 			 "the file:\n");
-		info("	%s\n", files.info_log_file.s_filename);
+		info("    %s\n", files.info_log_file.s_filename);
 	}
 
 	if (files.insert_distr_log_file.is_open()) {
@@ -1825,7 +1825,7 @@ void pirs_simulate(int argc, char *argv[])
 		info("\n");
 		info("The insert length distribution has been logged to the "
 			 "file:\n");
-		info("	%s\n", files.insert_distr_log_file.s_filename);
+		info("    %s\n", files.insert_distr_log_file.s_filename);
 	}
 
 	if (files.error_distr_log_file.is_open()) {
@@ -1837,7 +1837,7 @@ void pirs_simulate(int argc, char *argv[])
 		info("\n");
 		info("The error position distribution has been logged to the "
 			 "file:\n");
-		info("	%s\n", files.error_distr_log_file.s_filename);
+		info("    %s\n", files.error_distr_log_file.s_filename);
 	}
 
 	// Warn the user about some possible problems with the parameters they
