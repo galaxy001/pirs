@@ -1,0 +1,14 @@
+language: cpp
+sudo: required
+dist: trusty
+compiler:
+- gcc
+os:
+- linux
+addons:
+  apt:
+    packages:
+    - zlib
+    - pthread
+install: make install
+script: make
