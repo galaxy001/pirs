@@ -9,5 +9,5 @@ addons:
   apt:
     packages:
     - zlibc
-	- libboost-all-dev
+    - libboost-all-dev
 script: make
