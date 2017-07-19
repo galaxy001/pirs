@@ -9,5 +9,5 @@ addons:
   apt:
     packages:
     - zlibc
-install: make install
+install: make dist
 script: make
