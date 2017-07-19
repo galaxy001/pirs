@@ -18,9 +18,9 @@ class ReadPair;
  */
 class Indel {
 public:
-    int ref_idx;
-    int len;
-    Indel(int _ref_idx, int _len) : ref_idx(_ref_idx), len(_len) { }
+	int ref_idx;
+	int len;
+	Indel(int _ref_idx, int _len) : ref_idx(_ref_idx), len(_len) { }
 };
 
 /*
@@ -30,22 +30,22 @@ public:
  */
 class Read {
 public:
-    vector<char>   seq;
-    vector<char>   raw_read;
-    vector<char>   ref_read;
-    vector<char>   quality_vals;
-    vector<Indel>  indels;
-    vector<int>    error_pos;
-    ReadPair      &pair;
-    int            mask_end_len;
-    string         indiv_name;
+	vector<char>   seq;
+	vector<char>   raw_read;
+	vector<char>   ref_read;
+	vector<char>   quality_vals;
+	vector<Indel>  indels;
+	vector<int>	error_pos;
+	ReadPair	  &pair;
+	int			mask_end_len;
+	string		 indiv_name;
 
-    Read(ReadPair &_pair)
-        : pair(_pair), mask_end_len(0)
-    { }
+	Read(ReadPair &_pair)
+		: pair(_pair), mask_end_len(0)
+	{ }
 
-    inline int num_in_pair() const;
-    inline char orientation() const;
+	inline int num_in_pair() const;
+	inline char orientation() const;
 };
 
 /*
@@ -53,40 +53,40 @@ public:
  */
 class ReadPair {
 public:
-    Read         read_1;
-    Read         read_2;
-    const char  *ref_seq_id;
-    const char  *ref_filename;
-    int          insert_len;
-    size_t       ref_seq_pos;
-    uint64_t     pair_number;
-    int          insert_len_mean;
-    int          quality_shift;
-    bool         reverse_order;
-    bool         cyclicized;
+	Read		 read_1;
+	Read		 read_2;
+	const char  *ref_seq_id;
+	const char  *ref_filename;
+	int		  insert_len;
+	size_t	   ref_seq_pos;
+	uint64_t	 pair_number;
+	int		  insert_len_mean;
+	int		  quality_shift;
+	bool		 reverse_order;
+	bool		 cyclicized;
 
-    ReadPair()
-        : read_1(*this), read_2(*this)
-    { }
+	ReadPair()
+		: read_1(*this), read_2(*this)
+	{ }
 
-    void set_indiv_name(string my_indiv_name) {
-        read_1.indiv_name = my_indiv_name;
-        read_2.indiv_name = my_indiv_name;
-    }
+	void set_indiv_name(string my_indiv_name) {
+		read_1.indiv_name = my_indiv_name;
+		read_2.indiv_name = my_indiv_name;
+	}
 };
 
 inline int Read::num_in_pair() const
 {
-    if (this == &pair.read_1)
-        return (pair.reverse_order) ? 2 : 1;
-    else
-        return (pair.reverse_order) ? 1 : 2;
+	if (this == &pair.read_1)
+		return (pair.reverse_order) ? 2 : 1;
+	else
+		return (pair.reverse_order) ? 1 : 2;
 }
 
 inline char Read::orientation() const
 {
-    return (pair.reverse_order ^ pair.cyclicized ^
-            (num_in_pair() == 1)) ? '+' : '-';
+	return (pair.reverse_order ^ pair.cyclicized ^
+			(num_in_pair() == 1)) ? '+' : '-';
 }
 
 
@@ -102,44 +102,44 @@ inline char Read::orientation() const
 #include <Lock.h>
 class ReadPairSet {
 private:
-    unsigned nrefs;
-    Lock nrefs_lock;
+	unsigned nrefs;
+	Lock nrefs_lock;
 public:
-    ReadPair *pairs;
-    ReadPairSet() {
-        pairs = new ReadPair[READS_PER_SET];
-    }
-    ~ReadPairSet() {
-        delete[] pairs;
-    }
+	ReadPair *pairs;
+	ReadPairSet() {
+		pairs = new ReadPair[READS_PER_SET];
+	}
+	~ReadPairSet() {
+		delete[] pairs;
+	}
 
-    // Set the reference count of the ReadPairSet
-    void set_refs(unsigned n) {
-        nrefs = n;
-    }
+	// Set the reference count of the ReadPairSet
+	void set_refs(unsigned n) {
+		nrefs = n;
+	}
 
-    // Decrement the reference count of the ReadPairSet, returning true if
-    // it's now 0.
-    bool put_ref() {
-        nrefs_lock.lock();
-        unsigned n = --nrefs;
-        nrefs_lock.unlock();
-        return n == 0;
-    }
+	// Decrement the reference count of the ReadPairSet, returning true if
+	// it's now 0.
+	bool put_ref() {
+		nrefs_lock.lock();
+		unsigned n = --nrefs;
+		nrefs_lock.unlock();
+		return n == 0;
+	}
 };
 
 class ReadSet {
 public:
-    Read **reads;
-    ReadPairSet *pair_set;
-    bool is_last;
+	Read **reads;
+	ReadPairSet *pair_set;
+	bool is_last;
 
-    ReadSet() {
-        reads = new Read*[READS_PER_SET];
-    }
-    ~ReadSet() {
-        delete[] reads;
-    }
+	ReadSet() {
+		reads = new Read*[READS_PER_SET];
+	}
+	~ReadSet() {
+		delete[] reads;
+	}
 };
 #endif // ENABLE_THREADS
 
