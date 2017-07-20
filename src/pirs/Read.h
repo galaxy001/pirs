@@ -38,7 +38,6 @@ public:
 	vector<int>    error_pos;
 	ReadPair      &pair;
 	int            mask_end_len;
-	string         indiv_name;
 
 	Read(ReadPair &_pair)
 		: pair(_pair), mask_end_len(0)
@@ -64,15 +63,12 @@ public:
 	int          quality_shift;
 	bool         reverse_order;
 	bool         cyclicized;
+	bool         dump_in_name;
+	string       indiv_name;
 
 	ReadPair()
 		: read_1(*this), read_2(*this)
 	{ }
-
-	void set_indiv_name(string my_indiv_name) {
-		read_1.indiv_name = my_indiv_name;
-		read_2.indiv_name = my_indiv_name;
-	}
 };
 
 inline int Read::num_in_pair() const

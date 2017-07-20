@@ -11,6 +11,9 @@
 #include <string>
 #include <vector>
 
+#include <iostream>
+#include <boost/filesystem.hpp>
+
 #include "BaseCallingProfile.h"
 #include "GCBiasProfile.h"
 #include "IndelProfile.h"
@@ -366,6 +369,7 @@ static const struct option longopts[] = {
 	{"random-seed",		 	required_argument, NULL, 'S'},
 	{"indiv-name",		 	required_argument, NULL, 's'},
 	{"threads",			required_argument, NULL, 't'},
+	{"no-dump",			no_argument, NULL, 'D'},
 	{"quiet",		 	no_argument, 	   NULL, 'q'},
 	{"help",			no_argument,	   NULL, 'h'},
 	{"version",			no_argument,	   NULL, 'V'},
@@ -396,7 +400,8 @@ SimulationParameters::SimulationParameters(int argc, char *argv[])
 	write_log_files		(true),
 	user_specified_random_seed   (false),
 	num_simulator_threads	(-1),
-	output_directory	   (".")
+	output_directory	   ("."),
+	no_dump	(false)
 {
 	argc--;
 	argv++;
@@ -506,8 +511,15 @@ SimulationParameters::SimulationParameters(int argc, char *argv[])
 		case OPTION_NO_GC_BIAS:
 			simulate_gc_bias = false;
 			break;
-		case 'o':
+		case 'o': { 
 			output_directory = optarg;
+			boost::filesystem::path dir(output_directory);
+			if (!boost::filesystem::exists(dir)) {
+				boost::filesystem::create_directories(dir);
+			}
+			if (boost::filesystem::is_directory(dir)) {
+				
+			}
 			break;
 		case 'c':
 			OutputStream::set_default_output_type(optarg);
@@ -614,8 +626,14 @@ static const char *get_subst_error_algo_name(enum SubstitutionErrorAlgorithm alg
 SimulationFiles::SimulationFiles(const SimulationParameters &params)
 {
 	char buf[params.output_directory.length() + params.indiv_name.length() + 50];
-	sprintf(buf, "%s/%s", params.output_directory.c_str(),
-			params.indiv_name.c_str());
+	if (params.no_dump) {
+		sprintf(buf, "%s/%s", params.output_directory.c_str(),
+				params.indiv_name.c_str());
+	}
+	else {
+		sprintf(buf, "%s/%s_%d_%d", params.output_directory.c_str(),params.indiv_name.c_str(),
+				(int)params.read_len, (int)params.insert_len_mean);
+	}
 	string prefix_long(buf);
 	const char *fasta_suffix = (params.simulate_quality_values) ? ".fq" : ".fa";
 
@@ -677,9 +695,17 @@ SimulationProfiles::~SimulationProfiles()
  */
 static void output_read(const Read &read, OutputStream &out_file)
 {
-	out_file.printf("%c%s_read_%"PRIu64"/%d\n",
-					(read.quality_vals.empty()) ? '>' : '@',
-					read.indiv_name.c_str(), read.pair.pair_number, read.num_in_pair());
+	if (read.pair.dump_in_name) {
+		out_file.printf("%c%s_read_%d_%"PRIu64"/%d\n",
+						(read.quality_vals.empty()) ? '>' : '@',
+						read.pair.indiv_name.c_str(), read.pair.insert_len_mean,
+						read.pair.pair_number, read.num_in_pair());
+	}
+	else {
+		out_file.printf("%c%s_read_%"PRIu64"/%d\n",
+						(read.quality_vals.empty()) ? '>' : '@',
+						read.pair.indiv_name.c_str(), read.pair.pair_number, read.num_in_pair());
+	}
 	out_file.write(&read.seq[0], read.seq.size());
 	out_file.putc('\n');
 
@@ -1402,7 +1428,8 @@ static uint64_t simulate_read_pairs(const char *ref_seq, size_t ref_seq_len,
 			pair->insert_len_mean = params.insert_len_mean;
 			pair->quality_shift   = params.quality_shift;
 			pair->cyclicized      = params.jumping;
-			pair->set_indiv_name(params.indiv_name);
+			pair->indiv_name = params.indiv_name;
+			pair->dump_in_name = !params.no_dump;
 		}
 		read_pair_free_queue.put(pair_set);
 		read_1_free_queue.put(new ReadSet());
@@ -1476,7 +1503,8 @@ static uint64_t simulate_read_pairs(const char *ref_seq, size_t ref_seq_len,
 	pair.insert_len_mean = params.insert_len_mean;
 	pair.quality_shift   = params.quality_shift;
 	pair.cyclicized      = params.jumping;
-	pair.set_indiv_name(params.indiv_name);
+	pair.indiv_name = params.indiv_name;
+	pair.dump_in_name = !params.no_dump;
 
 	for (uint64_t i = 0; i < num_read_pairs; i++) {
 		while (!simulate_read_pair(pair, ref_seq, ref_seq_len,

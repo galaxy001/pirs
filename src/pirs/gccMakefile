@@ -25,7 +25,7 @@ ifeq ($(shell expr 3.6 \<= $(GCC4_VER)),1)
 endif
 endif
 
-LDLIB     = -lz -lpthread
+LDLIB     = -lz -lpthread -lboost_system -lboost_filesystem -ldl
 LDFLAGS   = -Wl,-O1 -Wl,--sort-common -Wl,--enable-new-dtags -Wl,--hash-style=both $(LDLIB)
 
 SRCDIRS = . SFMT-src-1.4
