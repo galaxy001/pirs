@@ -517,10 +517,17 @@ SimulationParameters::SimulationParameters(int argc, char *argv[])
 			output_directory = optarg;
 			boost::filesystem::path dir(output_directory);
 			if (!boost::filesystem::exists(dir)) {
-				boost::filesystem::create_directories(dir);
+				try {
+					boost::filesystem::create_directories(dir);
+				}
+				catch(const boost::filesystem::filesystem_error& e) {
+					std::cerr << "Unable to create output dir: " << output_directory << "\n";
+					exit(1);
+				}
 			}
-			if (boost::filesystem::is_directory(dir)) {
-				
+			else if (!boost::filesystem::is_directory(dir)) {
+				std::cerr << "Output directory exists but is not a directory: " << output_directory << "\n";
+				exit(1);
 			}
 			break;
 		}
