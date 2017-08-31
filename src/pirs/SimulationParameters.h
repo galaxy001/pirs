@@ -41,7 +41,6 @@ public:
 	const char **input_refs;
 	unsigned num_input_refs;
 	string indiv_name;
-	bool no_dump;
 
 	SimulationParameters(int argc, char **argv);
 };

@@ -12,13 +12,17 @@
 #include <vector>
 
 #include <iostream>
-#include <boost/filesystem.hpp>
 
 #include "BaseCallingProfile.h"
 #include "GCBiasProfile.h"
 #include "IndelProfile.h"
 #include "MaskQvalsByEamss.h"
 #include "SimulationParameters.h"
+
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "InputStream.h"
 #include "OutputStream.h"
@@ -297,8 +301,6 @@ static void pirs_simulate_usage()
 "                 writing compressed output, or 1 if there are not this many\n"
 "                 processors.\n"
 "\n"
-"  -D, --no-dump  Don't dump parameters in file names."
-"\n"
 "  -q, --quiet    Do not print informational messages.\n"
 "\n"
 "  -h, --help     Show this help and exit.\n"
@@ -319,7 +321,7 @@ static void pirs_simulate_usage_short()
 "  -v STDDEV  Set insert length standard deviation\n"
 "  -j         Simulate jumping library\n"
 "  -d         Simulate from diploid genome produced by `pirs diploid'\n"
-"  -o PREFIX  Set output prefix\n"
+"  -o PREFIX  Set output directory\n"
 "  -h         Show detailed help\n"
 "Not all options are shown here.  Try `pirs simulate -h' for the full help."
 	;
@@ -369,14 +371,32 @@ static const struct option longopts[] = {
 	{"no-logs",			no_argument,       NULL, 'n'},
 	{"no-log-files",		no_argument,       NULL, 'n'},
 	{"random-seed",		 	required_argument, NULL, 'S'},
-	{"indiv-name",		 	required_argument, NULL, 's'},
+	{"indiv-name",		 	optional_argument, NULL, 's'},
 	{"threads",			required_argument, NULL, 't'},
-	{"no-dump",			no_argument, NULL, 'D'},
 	{"quiet",		 	no_argument, 	   NULL, 'q'},
 	{"help",			no_argument,	   NULL, 'h'},
 	{"version",			no_argument,	   NULL, 'V'},
 	{NULL, 0, NULL, 0}
 };
+
+/* Make directory recursively */
+static void _mkdir(const char *dir) {
+        char tmp[256];
+        char *p = NULL;
+        size_t len;
+
+        snprintf(tmp, sizeof(tmp),"%s",dir);
+        len = strlen(tmp);
+        if(tmp[len - 1] == '/')
+                tmp[len - 1] = 0;
+        for(p = tmp + 1; *p; p++)
+                if(*p == '/') {
+                        *p = 0;
+                        mkdir(tmp, S_IRWXU);
+                        *p = '/';
+                }
+        mkdir(tmp, S_IRWXU);
+}
 
 /* From the command line, construct a SimulationParameters object containing the
  * parameters for the simulation. */
@@ -402,8 +422,7 @@ SimulationParameters::SimulationParameters(int argc, char *argv[])
 	write_log_files		(true),
 	user_specified_random_seed   (false),
 	num_simulator_threads	(-1),
-	output_directory	   ("."),
-	no_dump	(false)
+	output_directory	   (".")
 {
 	argc--;
 	argv++;
@@ -515,19 +534,23 @@ SimulationParameters::SimulationParameters(int argc, char *argv[])
 			break;
 		case 'o': { 
 			output_directory = optarg;
-			boost::filesystem::path dir(output_directory);
-			if (!boost::filesystem::exists(dir)) {
-				try {
-					boost::filesystem::create_directories(dir);
-				}
-				catch(const boost::filesystem::filesystem_error& e) {
+			struct stat s;
+			int err = stat(output_directory.c_str(), &s);
+			if(-1 == err) {
+				if(ENOENT == errno) {
+					_mkdir(output_directory.c_str());
+				} else {
+					perror("stat");
 					std::cerr << "Unable to create output dir: " << output_directory << "\n";
 					exit(1);
 				}
-			}
-			else if (!boost::filesystem::is_directory(dir)) {
-				std::cerr << "Output directory exists but is not a directory: " << output_directory << "\n";
-				exit(1);
+			} else {
+				if(!S_ISDIR(s.st_mode)) {
+					/* it's a dir */
+				} else {
+					std::cerr << "Output directory exists but is not a directory: " << output_directory << "\n";
+					exit(1);
+				}
 			}
 			break;
 		}
@@ -552,9 +575,6 @@ SimulationParameters::SimulationParameters(int argc, char *argv[])
 			fatal_error("pIRS is not compiled with support for "
 							"threads!  Option -t is not allowed.");
 			#endif
-			break;
-		case 'D':
-			no_dump = true;
 			break;
 		case 'S': {
 				random_seed = strtoull(optarg, &tmp, 10);
@@ -639,12 +659,12 @@ static const char *get_subst_error_algo_name(enum SubstitutionErrorAlgorithm alg
 SimulationFiles::SimulationFiles(const SimulationParameters &params)
 {
 	char buf[params.output_directory.length() + params.indiv_name.length() + 50];
-	if (params.no_dump) {
+	if (!params.indiv_name.empty()) {
 		sprintf(buf, "%s/%s", params.output_directory.c_str(),
 				params.indiv_name.c_str());
 	}
 	else {
-		sprintf(buf, "%s/%s_%d_%d", params.output_directory.c_str(),params.indiv_name.c_str(),
+		sprintf(buf, "%s/%s_%d_%d", params.output_directory.c_str(),"pirs_reads",
 				(int)params.read_len, (int)params.insert_len_mean);
 	}
 	string prefix_long(buf);
@@ -1442,7 +1462,6 @@ static uint64_t simulate_read_pairs(const char *ref_seq, size_t ref_seq_len,
 			pair->quality_shift   = params.quality_shift;
 			pair->cyclicized      = params.jumping;
 			pair->indiv_name = params.indiv_name;
-			pair->dump_in_name = !params.no_dump;
 		}
 		read_pair_free_queue.put(pair_set);
 		read_1_free_queue.put(new ReadSet());
@@ -1517,7 +1536,6 @@ static uint64_t simulate_read_pairs(const char *ref_seq, size_t ref_seq_len,
 	pair.quality_shift   = params.quality_shift;
 	pair.cyclicized      = params.jumping;
 	pair.indiv_name = params.indiv_name;
-	pair.dump_in_name = !params.no_dump;
 
 	for (uint64_t i = 0; i < num_read_pairs; i++) {
 		while (!simulate_read_pair(pair, ref_seq, ref_seq_len,
