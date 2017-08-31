@@ -664,7 +664,7 @@ SimulationFiles::SimulationFiles(const SimulationParameters &params)
 				params.indiv_name.c_str());
 	}
 	else {
-		sprintf(buf, "%s/%s_%d_%d", params.output_directory.c_str(),"pirs_reads",
+		sprintf(buf, "%s/%s_%d_%d", params.output_directory.c_str(),"Sim",
 				(int)params.read_len, (int)params.insert_len_mean);
 	}
 	string prefix_long(buf);
