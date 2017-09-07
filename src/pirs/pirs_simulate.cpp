@@ -292,6 +292,7 @@ static void pirs_simulate_usage()
 "\n"
 "  -s NAME, --indiv-name=NAME\n"
 "                 Set sample name\n"
+"                 Default to Sim_{ReadLen}_{InsertSize}\n"
 "\n"
 "  -t, --threads=NUM_THREADS\n"
 "                 Use NUM_THREADS threads to simulate reads.  This option is\n"
@@ -321,7 +322,8 @@ static void pirs_simulate_usage_short()
 "  -v STDDEV  Set insert length standard deviation\n"
 "  -j         Simulate jumping library\n"
 "  -d         Simulate from diploid genome produced by `pirs diploid'\n"
-"  -o PREFIX  Set output directory\n"
+"  -o PATH    Set output directory\n"
+"  -s PREFIX  Set output filename\n"
 "  -h         Show detailed help\n"
 "Not all options are shown here.  Try `pirs simulate -h' for the full help."
 	;
@@ -547,7 +549,6 @@ SimulationParameters::SimulationParameters(int argc, char *argv[])
 			} else {
 				if(!S_ISDIR(s.st_mode)) {
 					/* it's a dir */
-				} else {
 					std::cerr << "Output directory exists but is not a directory: " << output_directory << "\n";
 					exit(1);
 				}
@@ -665,7 +666,7 @@ SimulationFiles::SimulationFiles(const SimulationParameters &params)
 	}
 	else {
 		sprintf(buf, "%s/%s_%d_%d", params.output_directory.c_str(),"Sim",
-				(int)params.read_len, (int)params.insert_len_mean);
+				(int)params.read_len, (int)params.insert_len_mean);	// Should just set 'indiv_name' to Sim_{read_len}_{insert_len_mean} here for later sprint inside FastQ file. Will FIX it after I have time to learn C++ from C. Also, 'dump_in_name' is not used now. #BUG #FIXIT
 	}
 	string prefix_long(buf);
 	const char *fasta_suffix = (params.simulate_quality_values) ? ".fq" : ".fa";

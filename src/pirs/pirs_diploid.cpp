@@ -299,7 +299,7 @@ static void pirs_diploid_parse_command_line(int argc, char *argv[])
 			    "for usage information.");
 
 	if (argc == 0)
-		fatal_error("Reference sequence not supplied.  Run `pirs -h' "
+		fatal_error("Reference sequence not supplied.  Run `pirs diploid -h' "
 			    "for usage information.");
 	
 	ref_filename = argv[0];
