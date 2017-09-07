@@ -23,7 +23,7 @@ public:
 	Indel(int _ref_idx, int _len) : ref_idx(_ref_idx), len(_len) { }
 };
 
-/* 
+/*
  * Structure to represent a paired-end read.
  *
  * @pair is a reference to the containing ReadPair.
@@ -63,6 +63,8 @@ public:
 	int          quality_shift;
 	bool         reverse_order;
 	bool         cyclicized;
+	bool         dump_in_name;
+	string       indiv_name;
 
 	ReadPair()
 		: read_1(*this), read_2(*this)
@@ -80,7 +82,7 @@ inline int Read::num_in_pair() const
 inline char Read::orientation() const
 {
 	return (pair.reverse_order ^ pair.cyclicized ^
-				(num_in_pair() == 1)) ? '+' : '-';
+			(num_in_pair() == 1)) ? '+' : '-';
 }
 
 
@@ -103,7 +105,7 @@ public:
 	ReadPairSet() {
 		pairs = new ReadPair[READS_PER_SET];
 	}
-	~ReadPairSet() { 
+	~ReadPairSet() {
 		delete[] pairs;
 	}
 

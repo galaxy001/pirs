@@ -11,11 +11,18 @@
 #include <string>
 #include <vector>
 
+#include <iostream>
+
 #include "BaseCallingProfile.h"
 #include "GCBiasProfile.h"
 #include "IndelProfile.h"
 #include "MaskQvalsByEamss.h"
 #include "SimulationParameters.h"
+
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "InputStream.h"
 #include "OutputStream.h"
@@ -71,7 +78,7 @@ public:
 	}
 	void init(unsigned _read_len) {
 		init();
-	        read_len = _read_len;
+		read_len = _read_len;
 		error_pos_distr = new uint64_t[2 * read_len];
 		memset(error_pos_distr, 0, 2 * read_len * sizeof(error_pos_distr[0]));
 	}
@@ -81,7 +88,7 @@ public:
 	}
 
 	SimulationCounters() :
-		error_pos_distr(NULL) 
+		error_pos_distr(NULL)
 	{ }
 
 	~SimulationCounters() {
@@ -106,7 +113,7 @@ public:
 
 static void pirs_simulate_usage()
 {
-	const char *usage_str = 
+	const char *usage_str =
 "Usage: ./pirs simulate [OPTION]... REFERENCE.FASTA...\n"
 "\n"
 "pIRS is a program for simulating paired-end reads from a genome.  It is\n"
@@ -257,9 +264,9 @@ static void pirs_simulate_usage()
 "                 Do not simulate GC bias.  The GC bias profile will not be\n"
 "                 used.\n"
 "\n"
-"  -o PREFIX, --output-prefix=PREFIX\n"
-"                 Use PREFIX as the prefix of the output files.  Default:\n"
-"                 \"pirs_reads\"\n"
+"  -o DIR, --output-directory=DIR\n"
+"                 Use DIR as the output directory. Default: :\n"
+"                 \".\"\n"
 "\n"
 "  -c TYPE, --output-file-type=TYPE\n"
 "                 The string \"text\" or \"gzip\" to specify the type of\n"
@@ -283,6 +290,9 @@ static void pirs_simulate_usage()
 "                 with --disable-threads, or run on system with 4 or fewer\n"
 "                 processors).\n"
 "\n"
+"  -s NAME, --indiv-name=NAME\n"
+"                 Set sample name\n"
+"\n"
 "  -t, --threads=NUM_THREADS\n"
 "                 Use NUM_THREADS threads to simulate reads.  This option is\n"
 "                 not available if pIRS was compiled with the --disable-threads\n"
@@ -302,7 +312,7 @@ static void pirs_simulate_usage()
 
 static void pirs_simulate_usage_short()
 {
-	const char *usage_str_short = 
+	const char *usage_str_short =
 "Usage: pirs simulate [OPTIONS...] REFERENCE.FASTA...\n"
 "Options:\n"
 "  -l LEN     Set read length\n"
@@ -311,7 +321,7 @@ static void pirs_simulate_usage_short()
 "  -v STDDEV  Set insert length standard deviation\n"
 "  -j         Simulate jumping library\n"
 "  -d         Simulate from diploid genome produced by `pirs diploid'\n"
-"  -o PREFIX  Set output prefix\n"
+"  -o PREFIX  Set output directory\n"
 "  -h         Show detailed help\n"
 "Not all options are shown here.  Try `pirs simulate -h' for the full help."
 	;
@@ -324,7 +334,7 @@ enum {
 	OPTION_NO_INDELS,
 	OPTION_NO_GC_BIAS,
 };
-static const char *optstring = "l:x:m:v:jdB:I:G:e:A:M:Q:o:c:znS:t:qhV";
+static const char *optstring = "l:x:m:v:jdB:I:G:e:A:M:Q:o:c:znSs:t:qhV";
 static const struct option longopts[] = {
 	{"read-len",                    required_argument, NULL, 'l'},
 	{"coverage",                    required_argument, NULL, 'x'},
@@ -357,10 +367,11 @@ static const struct option longopts[] = {
 	{"no-gc-content-bias",          no_argument,       NULL, OPTION_NO_GC_BIAS},
 	{"output-file-type",		required_argument, NULL, 'c'},
 	{"compress",			no_argument,       NULL, 'z'},
-	{"output-prefix",		required_argument, NULL, 'o'},
+	{"output-directory",		optional_argument, NULL, 'o'},
 	{"no-logs",			no_argument,       NULL, 'n'},
 	{"no-log-files",		no_argument,       NULL, 'n'},
 	{"random-seed",		 	required_argument, NULL, 'S'},
+	{"indiv-name",		 	optional_argument, NULL, 's'},
 	{"threads",			required_argument, NULL, 't'},
 	{"quiet",		 	no_argument, 	   NULL, 'q'},
 	{"help",			no_argument,	   NULL, 'h'},
@@ -368,31 +379,50 @@ static const struct option longopts[] = {
 	{NULL, 0, NULL, 0}
 };
 
+/* Make directory recursively */
+static void _mkdir(const char *dir) {
+        char tmp[256];
+        char *p = NULL;
+        size_t len;
+
+        snprintf(tmp, sizeof(tmp),"%s",dir);
+        len = strlen(tmp);
+        if(tmp[len - 1] == '/')
+                tmp[len - 1] = 0;
+        for(p = tmp + 1; *p; p++)
+                if(*p == '/') {
+                        *p = 0;
+                        mkdir(tmp, S_IRWXU);
+                        *p = '/';
+                }
+        mkdir(tmp, S_IRWXU);
+}
+
 /* From the command line, construct a SimulationParameters object containing the
  * parameters for the simulation. */
 SimulationParameters::SimulationParameters(int argc, char *argv[])
 	:  
-	   read_len			(100),
-	   coverage			(5.0),
-	   insert_len_mean		(180),
-	   insert_len_sd		(-1.0),
-	   jumping			(false),
-	   diploid			(false),
-	   base_calling_profile_filename(NULL),
-	   gc_bias_profile_filename	(NULL),
-	   indel_profile_filename	(NULL),
-	   error_rate			(-1.0),
-	   subst_error_algo		(ALGO_QTRANS),
-	   quality_mask_mode		(casava::demultiplex::MODE_NONE),
-	   quality_shift		(33),
-	   simulate_quality_values	(true),
-	   simulate_substitution_errors (true),
-	   simulate_indels		(true),
-	   simulate_gc_bias		(true),
-	   write_log_files		(true),
-	   user_specified_random_seed   (false),
-	   num_simulator_threads	(-1),
-	   output_prefix		("pirs_reads")
+	read_len			(100),
+	coverage			(5.0),
+	insert_len_mean		(180),
+	insert_len_sd		(-1.0),
+	jumping			(false),
+	diploid			(false),
+	base_calling_profile_filename(NULL),
+	gc_bias_profile_filename	(NULL),
+	indel_profile_filename	(NULL),
+	error_rate			(-1.0),
+	subst_error_algo		(ALGO_QTRANS),
+	quality_mask_mode		(casava::demultiplex::MODE_NONE),
+	quality_shift		(33),
+	simulate_quality_values	(true),
+	simulate_substitution_errors (true),
+	simulate_indels		(true),
+	simulate_gc_bias		(true),
+	write_log_files		(true),
+	user_specified_random_seed   (false),
+	num_simulator_threads	(-1),
+	output_directory	   (".")
 {
 	argc--;
 	argv++;
@@ -400,33 +430,33 @@ SimulationParameters::SimulationParameters(int argc, char *argv[])
 	char *tmp;
 	while ((c = getopt_long(argc, argv, optstring, longopts, NULL)) != -1) {
 		switch (c) {
-		case 'l': 
+		case 'l':
 			read_len = strtol(optarg, &tmp, 10);
 			if (tmp == optarg || read_len <= 0) {
 				fatal_error("The read length must be greater "
-					    "than 0; please check option -l.");
+						    "than 0; please check option -l.");
 			}
 			break;
 		case 'x': 
 			coverage = strtod(optarg, &tmp);
 			if (tmp == optarg || coverage <= 0.0) {
 				fatal_error("The coverage must be greater "
-					    "than 0; please check option -x.");
+						    "than 0; please check option -x.");
 			}
 			break;
 		case 'm': 
 			insert_len_mean = strtod(optarg, &tmp);
 			if (tmp == optarg || insert_len_mean <= 0.0) {
 				fatal_error("The insert size mean be greater "
-					    "than 0; please check option -m.");
+						    "than 0; please check option -m.");
 			}
 			break;
 		case 'v': 
 			insert_len_sd = strtod(optarg, &tmp);
 			if (tmp == optarg || insert_len_sd < 0.0) {
 				fatal_error("The insert size standard deviation "
-					    "must be non-negative; please check "
-					    "option -v");
+						    "must be non-negative; please check "
+						    "option -v");
 			}
 			break;
 		case 'j':
@@ -449,7 +479,7 @@ SimulationParameters::SimulationParameters(int argc, char *argv[])
 
 			if (tmp == optarg || !in_unit_interval(error_rate)) {
 				fatal_error("The error rate must be a number in the interval "
-					    "[0, 1]; please check option -e.");
+						    "[0, 1]; please check option -e.");
 			}
 			if (error_rate == 0.0)
 				simulate_substitution_errors = false;
@@ -461,10 +491,10 @@ SimulationParameters::SimulationParameters(int argc, char *argv[])
 				subst_error_algo = ALGO_DIST;
 			else
 				fatal_error("Unknown algorithm \"%s\"; please "
-					    "check option -A.\n"
-					    "The available substitution error "
-					    "simulation algorithms are "
-					    "\"dist\" and \"qtrans\".", optarg);
+						    "check option -A.\n"
+						    "The available substitution error "
+						    "simulation algorithms are "
+						    "\"dist\" and \"qtrans\".", optarg);
 			break;
 		case 'M':
 			if (strcmp(optarg, "quality") == 0)
@@ -473,20 +503,20 @@ SimulationParameters::SimulationParameters(int argc, char *argv[])
 				quality_mask_mode = casava::demultiplex::MODE_LOWERCASE;
 			else
 				fatal_error("Unknown mask quality mode \"%s\"; please "
-					    "check option -M.\n"
-					    "The available mask quality modes are "
-					    "\"lowercase\" and \"quality\".",
-					    optarg);
+						    "check option -M.\n"
+						    "The available mask quality modes are "
+						    "\"lowercase\" and \"quality\".",
+						    optarg);
 			break;
 		case 'Q': 
 			quality_shift = strtol(optarg, &tmp, 10);
 			if (tmp == optarg || quality_shift < 0 || quality_shift > 127) {
 				fatal_error("Expected quality_shift between 0 "
-					    "and 127!  Please check option -Q.");
+						    "and 127!  Please check option -Q.");
 			}
 			if (quality_shift != 33 && quality_shift != 64) {
 				warning("quality_shift is set to %d, but it "
-					"usually is 33 or 64!", quality_shift);
+					    "usually is 33 or 64!", quality_shift);
 			}
 			break;
 		case OPTION_NO_QUALITY_VALUES:
@@ -502,9 +532,28 @@ SimulationParameters::SimulationParameters(int argc, char *argv[])
 		case OPTION_NO_GC_BIAS:
 			simulate_gc_bias = false;
 			break;
-		case 'o': 
-			output_prefix = optarg;
+		case 'o': { 
+			output_directory = optarg;
+			struct stat s;
+			int err = stat(output_directory.c_str(), &s);
+			if(-1 == err) {
+				if(ENOENT == errno) {
+					_mkdir(output_directory.c_str());
+				} else {
+					perror("stat");
+					std::cerr << "Unable to create output dir: " << output_directory << "\n";
+					exit(1);
+				}
+			} else {
+				if(!S_ISDIR(s.st_mode)) {
+					/* it's a dir */
+				} else {
+					std::cerr << "Output directory exists but is not a directory: " << output_directory << "\n";
+					exit(1);
+				}
+			}
 			break;
+		}
 		case 'c': 
 			OutputStream::set_default_output_type(optarg);
 			break;
@@ -519,23 +568,27 @@ SimulationParameters::SimulationParameters(int argc, char *argv[])
 			num_simulator_threads = strtol(optarg, &tmp, 10);
 			if (tmp == optarg || num_simulator_threads <= 0) {
 				fatal_error("The number of threads must be "
-					    "a positive integer!  Please "
-					    "check option -t.");
+						    "a positive integer!  Please "
+						    "check option -t.");
 			}
 			#else
 			fatal_error("pIRS is not compiled with support for "
-					"threads!  Option -t is not allowed.");
+							"threads!  Option -t is not allowed.");
 			#endif
 			break;
 		case 'S': {
 				random_seed = strtoull(optarg, &tmp, 10);
 				if (tmp == optarg)
 					fatal_error("The random seed must be "
-						    "an integer!  Please check "
-						    "option -S.");
+								"an integer!  Please check "
+								"option -S.");
 				user_specified_random_seed = true;
-			}
+		}
+		break;
+		case 's': {
+			indiv_name = optarg;
 			break;
+		}
 		case 'q':
 			info_messages_fp = NULL;
 			break;
@@ -562,7 +615,7 @@ SimulationParameters::SimulationParameters(int argc, char *argv[])
 	}
 	if (diploid && num_input_refs != 2) {
 		fatal_error("The `--diploid' option was given, but exactly 2 "
-			     "reference sequences were not supplied.");
+				    "reference sequences were not supplied.");
 	}
 
 	if (insert_len_sd == -1.0)
@@ -570,7 +623,7 @@ SimulationParameters::SimulationParameters(int argc, char *argv[])
 
 	if ((int)insert_len_mean < read_len)
 		fatal_error("The insert size mean cannot be less than the "
-			    "read length; please check option -m.");
+				    "read length; please check option -m.");
 
 	if (!user_specified_random_seed)
 		random_seed = (uint64_t)time(NULL) * (uint64_t)getpid();
@@ -605,9 +658,15 @@ static const char *get_subst_error_algo_name(enum SubstitutionErrorAlgorithm alg
  */
 SimulationFiles::SimulationFiles(const SimulationParameters &params)
 {
-	char buf[params.output_prefix.length() + 50];
-	sprintf(buf, "%s_%d_%d", params.output_prefix.c_str(),
-		(int)params.read_len, (int)params.insert_len_mean);
+	char buf[params.output_directory.length() + params.indiv_name.length() + 50];
+	if (!params.indiv_name.empty()) {
+		sprintf(buf, "%s/%s", params.output_directory.c_str(),
+				params.indiv_name.c_str());
+	}
+	else {
+		sprintf(buf, "%s/%s_%d_%d", params.output_directory.c_str(),"Sim",
+				(int)params.read_len, (int)params.insert_len_mean);
+	}
 	string prefix_long(buf);
 	const char *fasta_suffix = (params.simulate_quality_values) ? ".fq" : ".fa";
 
@@ -669,10 +728,17 @@ SimulationProfiles::~SimulationProfiles()
  */
 static void output_read(const Read &read, OutputStream &out_file)
 {
-	out_file.printf("%cread_%d_%"PRIu64"/%d\n",
-		        (read.quality_vals.empty()) ? '>' : '@',
-			read.pair.insert_len_mean,
-			read.pair.pair_number, read.num_in_pair());
+	if (read.pair.dump_in_name) {
+		out_file.printf("%c%s_read_%d_%"PRIu64"/%d\n",
+						(read.quality_vals.empty()) ? '>' : '@',
+						read.pair.indiv_name.c_str(), read.pair.insert_len_mean,
+						read.pair.pair_number, read.num_in_pair());
+	}
+	else {
+		out_file.printf("%c%s_read_%"PRIu64"/%d\n",
+						(read.quality_vals.empty()) ? '>' : '@',
+						read.pair.indiv_name.c_str(), read.pair.pair_number, read.num_in_pair());
+	}
 	out_file.write(&read.seq[0], read.seq.size());
 	out_file.putc('\n');
 
@@ -698,11 +764,11 @@ static void log_read_info(const Read &read, OutputStream &info_log_file)
 		return;
 
 	info_log_file.printf("read_%d_%"PRIu64"/%d\t%s\t%s\t%zu\t%c\t%d\t%d\t",
-			     (int)read.pair.insert_len_mean, read.pair.pair_number,
-			     read.num_in_pair(), read.pair.ref_filename,
-			     read.pair.ref_seq_id, read.pair.ref_seq_pos,
-			     read.orientation(),
-			     read.pair.insert_len, read.mask_end_len);
+					     (int)read.pair.insert_len_mean, read.pair.pair_number,
+					     read.num_in_pair(), read.pair.ref_filename,
+					     read.pair.ref_seq_id, read.pair.ref_seq_pos,
+					     read.orientation(),
+					     read.pair.insert_len, read.mask_end_len);
 
 	// Log base substitutions.
 	if (read.error_pos.empty()) {
@@ -711,13 +777,13 @@ static void log_read_info(const Read &read, OutputStream &info_log_file)
 		vector<int>::const_iterator it = read.error_pos.begin();
 		do {
 			info_log_file.printf("%d,%c->%c;",
-						*it + 1,
-						read.raw_read[*it],
-						read.seq[*it]);
+								 *it + 1,
+								 read.raw_read[*it],
+								 read.seq[*it]);
 		} while (++it != read.error_pos.end());
 	}
 	info_log_file.putc('\t');
-	
+
 	// Log insertions
 	bool found;
 	vector<Indel>::const_iterator it;
@@ -729,7 +795,7 @@ static void log_read_info(const Read &read, OutputStream &info_log_file)
 			// the insertion.
 			info_log_file.printf("%d,", it->ref_idx);
 			info_log_file.write(&read.seq[it->ref_idx + idx_delta],
-					    it->len);
+								it->len);
 			info_log_file.putc(';');
 			found = true;
 		}
@@ -771,7 +837,7 @@ static void log_read_info(const Read &read, OutputStream &info_log_file)
  * read), and this length is what is returned.
  */
 int build_indel_list(vector<Indel> &indels, int read_len,
-		     const IndelProfile &indel_profile, Random &rgen)
+					 const IndelProfile &indel_profile, Random &rgen)
 {
 	int ref_idx = 0;
 	int raw_idx = 0;
@@ -779,7 +845,7 @@ int build_indel_list(vector<Indel> &indels, int read_len,
 		int indel_len = indel_profile.get_indel_len(raw_idx, rgen);
 		if (indel_len != 0) {
 			if (indel_len < 0) {
-				 // deletion: advance ref_idx
+				// deletion: advance ref_idx
 				ref_idx += -indel_len;
 			} else {
 				// insertion: advance raw_idx
@@ -802,8 +868,8 @@ int build_indel_list(vector<Indel> &indels, int read_len,
  * indels are applied to the ref_seq to create the raw_seq.
  */
 void apply_indel_list(const vector<Indel> &indels, const vector<char> &ref_seq,
-		      vector<char> &raw_seq, SimulationCounters &counters,
-		      Random &rgen)
+					  vector<char> &raw_seq, SimulationCounters &counters,
+					  Random &rgen)
 {
 	int ref_idx = 0;
 	int raw_idx = 0;
@@ -821,7 +887,7 @@ void apply_indel_list(const vector<Indel> &indels, const vector<char> &ref_seq,
 			counters.del_count++;
 			counters.del_sum += -indel->len;
 		} else {
-			// Insertion; insert a random DNA sequence into the 
+			// Insertion; insert a random DNA sequence into the
 			// raw sequence.
 			rgen.random_dna_seq(&raw_seq[raw_idx], indel->len);
 			raw_idx += indel->len;
@@ -843,10 +909,10 @@ void apply_indel_list(const vector<Indel> &indels, const vector<char> &ref_seq,
  * also generates the quality values vector read.quality_vals.
  */
 static void call_read_bases(Read &read,
-			    SimulationCounters &counters,
-			    int cycle_offset,
-			    const BaseCallingProfile &profile,
-			    Random &rgen)
+							SimulationCounters &counters,
+							int cycle_offset,
+							const BaseCallingProfile &profile,
+							Random &rgen)
 {
 	// We need to keep track of whether the current position is an insert
 	// error or not.  The inserts are just random bases, and it does not
@@ -860,7 +926,7 @@ static void call_read_bases(Read &read,
 	char raw_base;
 	char called_base;
 	for (size_t i = 0; i < read.seq.size(); i++,
-					insert_remaining--, ref_idx++) 
+			insert_remaining--, ref_idx++)
 	{
 		int cycle = i + cycle_offset;
 		if (indel != read.indels.end() && ref_idx == indel->ref_idx) {
@@ -874,7 +940,7 @@ static void call_read_bases(Read &read,
 		raw_base = read.raw_read[i];
 
 		called_base = profile.call(cycle, raw_base, prev_qscore,
-					   qscore, rgen);
+								   qscore, rgen);
 
 		// If it's an insertion here, don't call a different base, but
 		// keep the quality score given to us by the base calling
@@ -915,15 +981,15 @@ static void call_read_bases(Read &read,
  * several reasons, all of which are random.
  */
 static bool simulate_read_pair(ReadPair &pair,
-			       const char *ref_seq, size_t ref_seq_len, 
-			       bool any_non_dna_chars,
-			       const SimulationParameters &params,
-			       const SimulationProfiles &profiles,
-			       SimulationCounters &counters,
-			       Random &rgen)
+							   const char *ref_seq, size_t ref_seq_len,
+							   bool any_non_dna_chars,
+							   const SimulationParameters &params,
+							   const SimulationProfiles &profiles,
+							   SimulationCounters &counters,
+							   Random &rgen)
 {
 	int insert_len = (int)rgen.rnorm(params.insert_len_mean,
-					 params.insert_len_sd);
+									 params.insert_len_sd);
 	pair.insert_len = insert_len;
 	if (insert_len < params.read_len)
 		return false;
@@ -942,8 +1008,8 @@ static bool simulate_read_pair(ReadPair &pair,
 	// Throw away this insert if the GC bias profile tells us to.
 	if (params.simulate_gc_bias) {
 		if (!profiles.gc_bias_profile->accept_insert(insert,
-							     insert_len,
-							     rgen)) 
+				insert_len,
+				rgen))
 		{
 			counters.discarded_inserts++;
 			return false;
@@ -954,15 +1020,15 @@ static bool simulate_read_pair(ReadPair &pair,
 	read_2.indels.clear();
 	if (params.simulate_indels) {
 		ref_read_1_len = build_indel_list(read_1.indels,
-						  params.read_len,
-						  *profiles.indel_profile,
-						  rgen);
+										  params.read_len,
+										  *profiles.indel_profile,
+										  rgen);
 
 
 		ref_read_2_len = build_indel_list(read_2.indels,
-						  params.read_len,
-						  *profiles.indel_profile,
-						  rgen);
+										  params.read_len,
+										  *profiles.indel_profile,
+										  rgen);
 
 		// If the insert length is very close to the read length, it is
 		// possible that one of the read lengths is now greater than it
@@ -970,7 +1036,7 @@ static bool simulate_read_pair(ReadPair &pair,
 		// reasonable read length and insert length... But if it does
 		// happen, return false and try simulating a new read pair.
 		if (ref_read_1_len > insert_len ||
-					ref_read_2_len > insert_len)
+				ref_read_2_len > insert_len)
 			return false;
 	} else {
 		ref_read_1_len = params.read_len;
@@ -982,13 +1048,13 @@ static bool simulate_read_pair(ReadPair &pair,
 
 	if (params.jumping) {
 		std::copy(&insert[insert_len - ref_read_2_len],
-			  &insert[insert_len],
-			  read_2.ref_read.begin());
+				  &insert[insert_len],
+				  read_2.ref_read.begin());
 		for (int i = 0; i < ref_read_1_len; i++)
 			read_1.ref_read[i] = dna_char_complement(insert[ref_read_1_len - 1 - i]);
 	} else {
 		std::copy(&insert[0], &insert[ref_read_1_len],
-		          read_1.ref_read.begin());
+				  read_1.ref_read.begin());
 		for (int i = 0; i < ref_read_2_len; i++)
 			read_2.ref_read[i] = dna_char_complement(insert[insert_len - 1 - i]);
 	}
@@ -1003,17 +1069,17 @@ static bool simulate_read_pair(ReadPair &pair,
 			return false;
 	}
 
-	
+
 	// The 'raw' reads here refers to the reads produced after doing the
 	// indel-simulation step but before doing the substitution-error step.
 	read_1.raw_read.resize(params.read_len);
 	read_2.raw_read.resize(params.read_len);
 
 	apply_indel_list(read_1.indels, read_1.ref_read,
-			 read_1.raw_read, counters, rgen);
+					 read_1.raw_read, counters, rgen);
 
 	apply_indel_list(read_2.indels, read_2.ref_read,
-			 read_2.raw_read, counters, rgen);
+					 read_2.raw_read, counters, rgen);
 
 	if (params.simulate_quality_values) {
 		read_1.quality_vals.resize(params.read_len);
@@ -1028,33 +1094,33 @@ static bool simulate_read_pair(ReadPair &pair,
 	read_2.seq.resize(params.read_len);
 	if (params.simulate_substitution_errors) {
 		call_read_bases(read_1, counters, 1,
-				*profiles.base_calling_profile,
-				rgen);
+						*profiles.base_calling_profile,
+						rgen);
 
 		call_read_bases(read_2, counters, params.read_len + 1,
-				*profiles.base_calling_profile,
-				rgen);
+						*profiles.base_calling_profile,
+						rgen);
 
 		// Mask quality using the EAMSS algorithm
 		if (params.quality_mask_mode != casava::demultiplex::MODE_NONE) {
 			casava::demultiplex::MaskQvalsByEamss masker;
 			read_1.mask_end_len = masker(read_1.quality_vals,
-						     read_1.seq,
-						     params.quality_mask_mode);
+										 read_1.seq,
+										 params.quality_mask_mode);
 			read_2.mask_end_len = masker(read_2.quality_vals,
-						     read_2.seq,
-						     params.quality_mask_mode);
+										 read_2.seq,
+										 params.quality_mask_mode);
 
 			counters.masked_bases += read_1.mask_end_len +
-						 read_2.mask_end_len;
+									 read_2.mask_end_len;
 		}
-		
+
 		//stat into quality_to_error_rate_distr
 		//string combine_quality_seq = output_quality_seq1 + output_quality_seq2;
 		//for(int i = 0; i < params.read_len * 2; i++)
 		//{
-			//int qval = combine_quality_seq[i] - params.quality_shift;
-			//quality_to_error_rate_distr[i + 1] +=  pow(10, double(qval)/double(-10));
+		//int qval = combine_quality_seq[i] - params.quality_shift;
+		//quality_to_error_rate_distr[i + 1] +=  pow(10, double(qval)/double(-10));
 		//}
 	} else {
 		// Not simulating substitution errors in the reads, so the final
@@ -1062,9 +1128,9 @@ static bool simulate_read_pair(ReadPair &pair,
 		// need to simulate quality values; but we just set the quality
 		// values to the highest value in this case.
 		std::copy(read_1.raw_read.begin(), read_1.raw_read.end(),
-			  read_1.seq.begin());
+				  read_1.seq.begin());
 		std::copy(read_2.raw_read.begin(), read_2.raw_read.end(),
-			  read_2.seq.begin());
+				  read_2.seq.begin());
 		if (params.simulate_quality_values) {
 			read_1.quality_vals.assign(params.read_len, 40);
 			read_2.quality_vals.assign(params.read_len, 40);
@@ -1100,16 +1166,16 @@ static bool simulate_read_pair(ReadPair &pair,
  * read_pair_ready_queue and exiting the thread.
  */
 static void read_simulator_thread_proc(const char *ref_seq,
-				       size_t ref_seq_len,
-				       bool any_non_dna_chars,
-				       const SimulationParameters &params,
-				       const SimulationProfiles &profiles,
-				       SimulationCounters &counters,
-				       SharedQueue<ReadPairSet*>& read_pair_free_queue,
-				       SharedQueue<ReadPairSet*>& read_pair_ready_queue,
-				       uint64_t &pairs_remaining,
-				       Lock &pairs_remaining_lock,
-				       Random &rgen)
+									   size_t ref_seq_len,
+									   bool any_non_dna_chars,
+									   const SimulationParameters &params,
+									   const SimulationProfiles &profiles,
+									   SimulationCounters &counters,
+									   SharedQueue<ReadPairSet*>& read_pair_free_queue,
+									   SharedQueue<ReadPairSet*>& read_pair_ready_queue,
+									   uint64_t &pairs_remaining,
+									   Lock &pairs_remaining_lock,
+									   Random &rgen)
 {
 	bool is_last = false;
 	ReadPairSet *pair_set;
@@ -1131,9 +1197,9 @@ static void read_simulator_thread_proc(const char *ref_seq,
 
 		for (unsigned i = 0; i < pairs_to_simulate; i++) {
 			while (!simulate_read_pair(pair_set->pairs[i],
-						   ref_seq, ref_seq_len,
-						   any_non_dna_chars, params,
-						   profiles, counters, rgen))
+									   ref_seq, ref_seq_len,
+									   any_non_dna_chars, params,
+									   profiles, counters, rgen))
 				;
 		}
 		read_pair_ready_queue.put(pair_set);
@@ -1178,15 +1244,15 @@ static void read_simulator_thread_proc(const char *ref_seq,
  * set.)
  */
 static void read_info_writer_thread_proc(SharedQueue<ReadPairSet*> &read_pair_free_queue,
-					 SharedQueue<ReadPairSet*> &read_pair_ready_queue,
-					 SharedQueue<ReadSet*> &read_1_free_queue,
-					 SharedQueue<ReadSet*> &read_1_ready_queue,
-					 SharedQueue<ReadSet*> &read_2_free_queue,
-					 SharedQueue<ReadSet*> &read_2_ready_queue,
-					 OutputStream &info_log_file,
-					 uint64_t seq_num_reads,
-					 uint64_t read_pair_num_offset,
-					 RandomBitGenerator &rgen)
+		SharedQueue<ReadPairSet*> &read_pair_ready_queue,
+		SharedQueue<ReadSet*> &read_1_free_queue,
+		SharedQueue<ReadSet*> &read_1_ready_queue,
+		SharedQueue<ReadSet*> &read_2_free_queue,
+		SharedQueue<ReadSet*> &read_2_ready_queue,
+		OutputStream &info_log_file,
+		uint64_t seq_num_reads,
+		uint64_t read_pair_num_offset,
+		RandomBitGenerator &rgen)
 {
 	uint64_t seq_read_num = 1;
 	bool is_last = false;
@@ -1233,7 +1299,7 @@ static void read_info_writer_thread_proc(SharedQueue<ReadPairSet*> &read_pair_fr
 					(seq_read_num % 25000 == 0 && seq_read_num != 1))
 			{
 				info("Simulated %"PRIu64" of %"PRIu64" read pairs\n",
-						seq_read_num, seq_num_reads);
+					 seq_read_num, seq_num_reads);
 			}
 
 			if (pair->reverse_order) {
@@ -1265,9 +1331,9 @@ static void read_info_writer_thread_proc(SharedQueue<ReadPairSet*> &read_pair_fr
  * is_last flag set, so the writer knows when to terminate.
  */
 static void read_writer_thread_proc(SharedQueue<ReadSet*> &read_free_queue,
-				    SharedQueue<ReadSet*> &read_ready_queue,
-				    SharedQueue<ReadPairSet*> &read_pair_free_queue,
-				    OutputStream &out_file)
+									SharedQueue<ReadSet*> &read_ready_queue,
+									SharedQueue<ReadPairSet*> &read_pair_free_queue,
+									OutputStream &out_file)
 {
 	bool is_last = false;
 	do {
@@ -1296,16 +1362,16 @@ static void read_writer_thread_proc(SharedQueue<ReadSet*> &read_free_queue,
  * information to the read info log.
  */
 static void output_read_pair(ReadPair &pair,
-			     uint64_t seq_pair_num,
-			     uint64_t seq_num_pairs,
-			     SimulationFiles &files, 
-			     RandomBitGenerator &bits)
+							 uint64_t seq_pair_num,
+							 uint64_t seq_num_pairs,
+							 SimulationFiles &files,
+							 RandomBitGenerator &bits)
 {
 	if (seq_pair_num == seq_num_pairs ||
 			(seq_pair_num % 25000 == 0 && seq_pair_num != 1))
 	{
 		info("Simulated %"PRIu64" of %"PRIu64" read pairs\n",
-				seq_pair_num, seq_num_pairs);
+			 seq_pair_num, seq_num_pairs);
 	}
 	// We have a read 1 and read 2 ready to output.  But we should randomize
 	// the output files they go to.  (In real data, we don't have all the
@@ -1364,14 +1430,14 @@ static void output_read_pair(ReadPair &pair,
  * added to the read pair numbers to make them continue going up from the
  * previous calls to this function.
  */
-static uint64_t simulate_read_pairs(const char *ref_seq, size_t ref_seq_len, 
-				    const char *ref_seq_id,
-				    const char *ref_filename,
-				    uint64_t read_pair_num_offset,
-				    const SimulationParameters &params,
-				    SimulationFiles &files,
-				    const SimulationProfiles &profiles,
-				    SimulationCounters &counters)
+static uint64_t simulate_read_pairs(const char *ref_seq, size_t ref_seq_len,
+									const char *ref_seq_id,
+									const char *ref_filename,
+									uint64_t read_pair_num_offset,
+									const SimulationParameters &params,
+									SimulationFiles &files,
+									const SimulationProfiles &profiles,
+									SimulationCounters &counters)
 {
 	bool any_non_dna_chars = seq_contains_non_dna_chars(ref_seq, ref_seq_len);
 	uint64_t num_read_pairs = uint64_t(ref_seq_len * params.coverage / (2 * params.read_len));
@@ -1395,6 +1461,7 @@ static uint64_t simulate_read_pairs(const char *ref_seq, size_t ref_seq_len,
 			pair->insert_len_mean = params.insert_len_mean;
 			pair->quality_shift   = params.quality_shift;
 			pair->cyclicized      = params.jumping;
+			pair->indiv_name = params.indiv_name;
 		}
 		read_pair_free_queue.put(pair_set);
 		read_1_free_queue.put(new ReadSet());
@@ -1409,47 +1476,47 @@ static uint64_t simulate_read_pairs(const char *ref_seq, size_t ref_seq_len,
 	{
 		if (omp_get_num_threads() != params.num_simulator_threads + 3) {
 			fatal_error("Not enough threads; is OpenMP disabled?\n"
-				    "Compile with --disable-threads if you want"
-				    "to run pIRS without multiple threads.");
+						"Compile with --disable-threads if you want"
+						"to run pIRS without multiple threads.");
 		}
 		int thread_num = omp_get_thread_num();
 		RandomBitGenerator rgen(params.random_seed + thread_num);
 		switch (thread_num) {
 		case 0:
 			read_info_writer_thread_proc(read_pair_free_queue,
-						     read_pair_ready_queue,
-						     read_1_free_queue,
-						     read_1_ready_queue,
-						     read_2_free_queue,
-						     read_2_ready_queue,
-						     files.info_log_file,
-						     num_read_pairs,
-						     read_pair_num_offset,
-						     rgen);
+										 read_pair_ready_queue,
+										 read_1_free_queue,
+										 read_1_ready_queue,
+										 read_2_free_queue,
+										 read_2_ready_queue,
+										 files.info_log_file,
+										 num_read_pairs,
+										 read_pair_num_offset,
+										 rgen);
 			break;
 		case 1:
 			read_writer_thread_proc(read_1_free_queue,
-						read_1_ready_queue,
-						read_pair_free_queue,
-						files.out_file_1);
+									read_1_ready_queue,
+									read_pair_free_queue,
+									files.out_file_1);
 			break;
 		case 2:
 			read_writer_thread_proc(read_2_free_queue,
-						read_2_ready_queue,
-						read_pair_free_queue,
-						files.out_file_2);
+									read_2_ready_queue,
+									read_pair_free_queue,
+									files.out_file_2);
 			break;
 		default:
 			read_simulator_thread_proc(ref_seq, ref_seq_len,
-						   any_non_dna_chars,
-						   params,
-						   profiles,
-						   tl_counters[thread_num - 3],
-						   read_pair_free_queue,
-						   read_pair_ready_queue,
-						   pairs_remaining,
-						   pairs_remaining_lock,
-						   rgen);
+									   any_non_dna_chars,
+									   params,
+									   profiles,
+									   tl_counters[thread_num - 3],
+									   read_pair_free_queue,
+									   read_pair_ready_queue,
+									   pairs_remaining,
+									   pairs_remaining_lock,
+									   rgen);
 			break;
 		}
 	}
@@ -1468,12 +1535,13 @@ static uint64_t simulate_read_pairs(const char *ref_seq, size_t ref_seq_len,
 	pair.insert_len_mean = params.insert_len_mean;
 	pair.quality_shift   = params.quality_shift;
 	pair.cyclicized      = params.jumping;
+	pair.indiv_name = params.indiv_name;
 
 	for (uint64_t i = 0; i < num_read_pairs; i++) {
 		while (!simulate_read_pair(pair, ref_seq, ref_seq_len,
-					   any_non_dna_chars,
-					   params, profiles, counters,
-					   rgen))
+								   any_non_dna_chars,
+								   params, profiles, counters,
+								   rgen))
 			;
 
 		pair.pair_number = i + 1 + read_pair_num_offset;
@@ -1519,20 +1587,20 @@ static double dist_sd(const map<int, uint64_t> &distr, double mean)
 // Output the insert length distribution to the insert length distribution log
 // file (*.insert_len.distr{,.gz})
 static void log_insert_len_distr(OutputStream &insert_log,
-				 map<int, uint64_t> &insert_len_distr,
-				 double insert_len_mean, double insert_len_sd)
+								 map<int, uint64_t> &insert_len_distr,
+								 double insert_len_mean, double insert_len_sd)
 {
 	double mean = dist_mean(insert_len_distr);
 	double sd = dist_sd(insert_len_distr, mean);
 
 	insert_log.printf(
-	"#\n"
-	"# This file shows the length distribution of the simulated inserts.\n"
-	"# We were trying to simulate inserts with a mean length of %g and a\n"
-	"# standard deviation of %g.  The actual mean is %g, and the actual\n"
-	"# standard deviation is %g.\n"
-	"#\n"
-	"# insert_len\tfrequency\n",
+		"#\n"
+		"# This file shows the length distribution of the simulated inserts.\n"
+		"# We were trying to simulate inserts with a mean length of %g and a\n"
+		"# standard deviation of %g.  The actual mean is %g, and the actual\n"
+		"# standard deviation is %g.\n"
+		"#\n"
+		"# insert_len\tfrequency\n",
 		insert_len_mean, insert_len_sd, mean, sd);
 
 	map<int, uint64_t>::const_iterator it;
@@ -1543,42 +1611,42 @@ static void log_insert_len_distr(OutputStream &insert_log,
 // Output the error position distribution to the error position distribution log
 // file. (*.error_pos.distr{,.gz})
 static void log_error_pos_distr(OutputStream &error_log,
-				const uint64_t error_pos_distr[],
-				const SimulationParameters &params,
-				const BaseCallingProfile &profile,
-				uint64_t num_read_pairs)
+								const uint64_t error_pos_distr[],
+								const SimulationParameters &params,
+								const BaseCallingProfile &profile,
+								uint64_t num_read_pairs)
 {
 	error_log.printf(
-	"#\n"
-	"# This file shows the error position distribution of the simulated reads.\n"
-	"# The cycle number indicates the position in the two reads.  The frequency\n"
-	"# and average rate of errors in each position is provided.\n"
-	"#\n"
-	"# The total number of read pairs that were simulated was %"PRIu64".\n"
-	"# Each read was %d base pairs long, so there were %d cycles.\n"
-	"# Substitution errors were simulated using the %s,\n",
+		"#\n"
+		"# This file shows the error position distribution of the simulated reads.\n"
+		"# The cycle number indicates the position in the two reads.  The frequency\n"
+		"# and average rate of errors in each position is provided.\n"
+		"#\n"
+		"# The total number of read pairs that were simulated was %"PRIu64".\n"
+		"# Each read was %d base pairs long, so there were %d cycles.\n"
+		"# Substitution errors were simulated using the %s,\n",
 		num_read_pairs, params.read_len, params.read_len * 2,
 		get_subst_error_algo_name(params.subst_error_algo));
 	if (params.error_rate == -1.0) {
 		error_log.printf("# using the default error rate of the base-calling profile:\n"
-				 "# \"%s\"\n", profile.filename.c_str());
+						 "# \"%s\"\n", profile.filename.c_str());
 	} else {
 		error_log.printf("# using the base-calling profile \"%s\",\n"
-				 "# modified to use the user-supplied error rate of %g.\n",
-				 profile.filename.c_str(), params.error_rate);
+						 "# modified to use the user-supplied error rate of %g.\n",
+						 profile.filename.c_str(), params.error_rate);
 	}
 	error_log.puts("#\n");
 	uint64_t total_errors = 0;
 	error_log.puts("# Cycle\tError_frequency\tError_rate\n");
 	for (int i = 0; i < 2 * params.read_len; i++) {
 		error_log.printf("%d\t%"PRIu64"\t%g\n",
-				 i + 1, error_pos_distr[i],
-				 error_pos_distr[i] / double(num_read_pairs));
+						 i + 1, error_pos_distr[i],
+						 error_pos_distr[i] / double(num_read_pairs));
 		total_errors += error_pos_distr[i];
 	}
 	error_log.printf("total\t%"PRIu64"\t%g\n",
-			 total_errors,
-			 total_errors / (double(num_read_pairs) * 2 * params.read_len));
+					 total_errors,
+					 total_errors / (double(num_read_pairs) * 2 * params.read_len));
 }
 
 static void log_parameter(OutputStream &info_log, const char *format, ...)
@@ -1604,19 +1672,19 @@ static void log_parameter(OutputStream &info_log, const char *format, ...)
  * info() function.
  */
 static void begin_info_log(OutputStream &info_log,
-			   const SimulationParameters &params,
-			   const SimulationProfiles &profiles)
+						   const SimulationParameters &params,
+						   const SimulationProfiles &profiles)
 {
 	if (info_log.is_open()) {
 		info_log.puts(
-		"# \n"
-		"# This file is a log of every read that was simulated.  It shows\n"
-		"# exactly where each read came from and the substitution errors,\n"
-		"# insertions, and deletions (if any) that were made to it.\n"
-		"#\n"
-		"# The following lists the parameters of the simulation:\n"
-		"#\n"
-		"# Input reference sequence files:   ");
+			"# \n"
+			"# This file is a log of every read that was simulated.  It shows\n"
+			"# exactly where each read came from and the substitution errors,\n"
+			"# insertions, and deletions (if any) that were made to it.\n"
+			"#\n"
+			"# The following lists the parameters of the simulation:\n"
+			"#\n"
+			"# Input reference sequence files:   ");
 
 		unsigned i;
 
@@ -1630,71 +1698,73 @@ static void begin_info_log(OutputStream &info_log,
 	info("\n");
 
 	log_parameter(info_log, "Read length:                      %d\n",
-		      params.read_len);
+				  params.read_len);
 	log_parameter(info_log, "Insert length mean:               %g\n",
-		      params.insert_len_mean);
+				  params.insert_len_mean);
 	log_parameter(info_log, "Insert length standard deviation: %g\n",
-		      params.insert_len_sd);
+				  params.insert_len_sd);
 	log_parameter(info_log, "Coverage:                         %g\n",
-		      params.coverage);
+				  params.coverage);
 	log_parameter(info_log, "Diploid:                          %s\n",
-		      bool_to_str(params.diploid));
-	log_parameter(info_log, "Cyclized (jumping library):       %s\n", 
-		      bool_to_str(params.jumping));
+				  bool_to_str(params.diploid));
+	log_parameter(info_log, "Cyclized (jumping library):       %s\n",
+				  bool_to_str(params.jumping));
 	log_parameter(info_log, "Simulate substitution errors:     %s\n",
-		      bool_to_str(params.simulate_substitution_errors));
+				  bool_to_str(params.simulate_substitution_errors));
 	if (params.error_rate == -1.0)
 		log_parameter(info_log, "Substitution error rate:          default of base-calling profile\n");
 	else
 		log_parameter(info_log, "Substitution error rate:          %g\n",
-			      params.error_rate);
+					  params.error_rate);
 	log_parameter(info_log, "Base-calling profile:             %s\n",
-		      params.simulate_substitution_errors ? 
-				profiles.base_calling_profile->filename.c_str()
-				: "(None)");
+				  params.simulate_substitution_errors ?
+				  profiles.base_calling_profile->filename.c_str()
+				  : "(None)");
 	log_parameter(info_log, "Substitution error algorithm:     %s\n",
-		      params.simulate_substitution_errors ? 
-				get_subst_error_algo_name(params.subst_error_algo)
-					: "(None)");
+				  params.simulate_substitution_errors ?
+				  get_subst_error_algo_name(params.subst_error_algo)
+				  : "(None)");
 	log_parameter(info_log, "Simulate InDel errors:            %s\n",
-		      bool_to_str(params.simulate_indels));
+				  bool_to_str(params.simulate_indels));
 	log_parameter(info_log, "InDel error profile:              %s\n",
-		      params.simulate_indels ?
-				profiles.indel_profile->filename.c_str()
-				: "(None)");
+				  params.simulate_indels ?
+				  profiles.indel_profile->filename.c_str()
+				  : "(None)");
 	log_parameter(info_log, "Simulate GC content bias:         %s\n",
-		      bool_to_str(params.simulate_gc_bias));
+				  bool_to_str(params.simulate_gc_bias));
 	log_parameter(info_log, "GC bias profile:                  %s\n",
-		      params.simulate_gc_bias ?
-				profiles.gc_bias_profile->filename.c_str()
-				: "(None)");
+				  params.simulate_gc_bias ?
+				  profiles.gc_bias_profile->filename.c_str()
+				  : "(None)");
 	log_parameter(info_log, "Output type:                      %s\n",
-			OutputStream::get_default_file_type_str());
-	log_parameter(info_log, "Output prefix:                    %s\n",
-			params.output_prefix.c_str());
+				  OutputStream::get_default_file_type_str());
+	log_parameter(info_log, "Output directory:                 %s\n",
+				  params.output_directory.c_str());
+	log_parameter(info_log, "Indiv name:                       %s\n",
+				  params.indiv_name.c_str());
 	log_parameter(info_log, "Simulate quality values:          %s\n",
-			bool_to_str(params.simulate_quality_values));
-		
+				  bool_to_str(params.simulate_quality_values));
+
 	if (params.simulate_quality_values) {
 		log_parameter(info_log, "ASCII shift of quality value      %d\n",
-				params.quality_shift);
+					  params.quality_shift);
 	}
 	log_parameter(info_log, "Mode of mask quality:             %s\n",
-			casava::demultiplex::get_quality_mask_mode_name(params.quality_mask_mode));
+				  casava::demultiplex::get_quality_mask_mode_name(params.quality_mask_mode));
 
 	log_parameter(info_log, "Random seed:                      %"PRIu64"\n",
-			params.random_seed);
+				  params.random_seed);
 #ifdef ENABLE_THREADS
 	log_parameter(info_log, "Number of simulator threads:      %d\n",
-			params.num_simulator_threads);
+				  params.num_simulator_threads);
 #else
 	log_parameter(info_log, "Number of simulator threads:      1 (no support for threads)\n");
 #endif
 	if (info_log.is_open()) {
 		info_log.puts("#\n"
-			      "# readId\treferenceFile\tcontig/scaffold/chromosome\t"
-			      "position\torientation\tinsertSize\tmaskEndLen\t"
-			      "substitutions\tinsertions\tdeletions\n");
+					  "# readId\treferenceFile\tcontig/scaffold/chromosome\t"
+					  "position\torientation\tinsertSize\tmaskEndLen\t"
+					  "substitutions\tinsertions\tdeletions\n");
 
 		info("\n");
 	}
@@ -1736,62 +1806,62 @@ void pirs_simulate(int argc, char *argv[])
 	uint64_t total_seq_len = 0;
 	for (unsigned i = 0; i < params.num_input_refs; i++) {
 		while (read_scaffold(files.in_files[i], id, seq)) {
-			info("Simulating reads from scaffold \"%s\" (length = %zu)\n", 
-						id.c_str(), seq.size());
+			info("Simulating reads from scaffold \"%s\" (length = %zu)\n",
+				 id.c_str(), seq.size());
 			num_read_pairs += simulate_read_pairs(&seq[0],
-						    	      seq.size(),
-							      id.c_str(),
-							      params.input_refs[i],
-							      num_read_pairs,
-							      params,
-							      files,
-							      profiles,
-							      counters);
-			info("Done simulating reads from scaffold \"%s\" (length = %zu)\n", 
-						id.c_str(), seq.size());
+												  seq.size(),
+												  id.c_str(),
+												  params.input_refs[i],
+												  num_read_pairs,
+												  params,
+												  files,
+												  profiles,
+												  counters);
+			info("Done simulating reads from scaffold \"%s\" (length = %zu)\n",
+				 id.c_str(), seq.size());
 			total_seq_len += seq.size();
 		}
 	}
 
 	info("\n");
 	info("Simulation complete (%lu seconds elapsed)\n",
-			time(NULL) - start_time);
+		 time(NULL) - start_time);
 	info("\n");
 
 	uint64_t num_bases = num_read_pairs * params.read_len * 2;
 	uint64_t num_subst_errors = sum_array(counters.error_pos_distr, params.read_len * 2);
 
 	info("Bases in reference sequences:    %"PRIu64"\n",
-			total_seq_len);
+		 total_seq_len);
 	info("Read pairs simulated:            %"PRIu64"\n",
-			num_read_pairs);
+		 num_read_pairs);
 	info("Bases in reads:                  %"PRIu64"\n",
-			num_bases);
+		 num_bases);
 	info("Coverage:                        %.2f\n",
-			double(num_bases) / double(total_seq_len)
-			* (params.diploid ? params.num_input_refs : 1.0));
+		 double(num_bases) / double(total_seq_len)
+		 * (params.diploid ? params.num_input_refs : 1.0));
 	info("Substitution error count:        %"PRIu64"\n",
-			num_subst_errors);
+		 num_subst_errors);
 	info("Average substitution error rate: %.3f%%\n",
-			100 * double(num_subst_errors) / num_bases);
+		 100 * double(num_subst_errors) / num_bases);
 	info("Insertion count:                 %"PRIu64"\n",
-			counters.ins_count);
+		 counters.ins_count);
 	info("Deletion count:                  %"PRIu64"\n",
-			counters.del_count);
+		 counters.del_count);
 	info("Average insertion rate:          %.5f%%\n",
-			100 * double(counters.ins_count) / num_bases);
+		 100 * double(counters.ins_count) / num_bases);
 	info("Average deletion rate:           %.5f%%\n",
-			100 * double(counters.del_count) / num_bases);
+		 100 * double(counters.del_count) / num_bases);
 	info("Average insertion length:        %.2f\n",
-			counters.ins_count ? 
-				double(counters.ins_sum) / counters.ins_count
-				: 0.0);
+		 counters.ins_count ?
+		 double(counters.ins_sum) / counters.ins_count
+		 : 0.0);
 	info("Average deletion length:         %.2f\n",
-			counters.del_count ? 
-				double(counters.del_sum) / counters.del_count
-				: 0.0);
+		 counters.del_count ?
+		 double(counters.del_sum) / counters.del_count
+		 : 0.0);
 	info("Fragments affected by GC bias:   %.2f%%\n",
-			100 * double(counters.discarded_inserts) / double(counters.num_inserts));
+		 100 * double(counters.discarded_inserts) / double(counters.num_inserts));
 	info("Bases masked by EAMSS algorithm: %"PRIu64"\n", counters.masked_bases);
 	info("\n");
 
@@ -1802,30 +1872,30 @@ void pirs_simulate(int argc, char *argv[])
 	if (files.info_log_file.is_open()) {
 		info("\n");
 		info("Information about each simulated read has been logged to "
-			"the file:\n");
+			 "the file:\n");
 		info("    %s\n", files.info_log_file.s_filename);
 	}
 
 	if (files.insert_distr_log_file.is_open()) {
 		log_insert_len_distr(files.insert_distr_log_file,
-				     counters.insert_len_distr,
-				     params.insert_len_mean,
-				     params.insert_len_sd);
+							 counters.insert_len_distr,
+							 params.insert_len_mean,
+							 params.insert_len_sd);
 		info("\n");
 		info("The insert length distribution has been logged to the "
-			"file:\n");
+			 "file:\n");
 		info("    %s\n", files.insert_distr_log_file.s_filename);
 	}
 
 	if (files.error_distr_log_file.is_open()) {
 		log_error_pos_distr(files.error_distr_log_file,
-				    counters.error_pos_distr,
-				    params,
-				    *profiles.base_calling_profile,
-				    num_read_pairs);
+							counters.error_pos_distr,
+							params,
+							*profiles.base_calling_profile,
+							num_read_pairs);
 		info("\n");
 		info("The error position distribution has been logged to the "
-			"file:\n");
+			 "file:\n");
 		info("    %s\n", files.error_distr_log_file.s_filename);
 	}
 
@@ -1845,7 +1915,7 @@ void pirs_simulate(int argc, char *argv[])
 		info("Note: The substitution error rate was set to 0, but we still had to simulate\n");
 		info("quality values to write the FASTQ files.  The quality values are all set\n");
 		info("to 40 (letter '%c') since without substitution errors, we didn't have a\n",
-					40 + params.quality_shift);
+			 40 + params.quality_shift);
 		info("base-calling profile available to simulate the quality values.  If this isn't\n");
 		info("what you wanted, you should specify a non-zero error rate, or else provide the\n");
 		info("`--no-quality-vals' option so that we can write a FASTA file with no quality\n");
@@ -1854,9 +1924,9 @@ void pirs_simulate(int argc, char *argv[])
 	if (params.user_specified_random_seed && params.num_simulator_threads > 1) {
 		info("\n");
 		info("Note: A random seed (%"PRIu64") was specified on the command line.\n",
-					params.random_seed);
+			 params.random_seed);
 		info("However, we ran with %d simulator threads.  Because there was more than one\n",
-					params.num_simulator_threads);
+			 params.num_simulator_threads);
 		info("simulator thread, the results of the simulation will not be exactly\n");
 		info("reproducible, even if specify the same random seed again.  If you want to\n");
 		info("make the simulation exactly reproducible, you should specify --threads=1.\n");
@@ -1864,7 +1934,7 @@ void pirs_simulate(int argc, char *argv[])
 	if (params.quality_shift != 33 && params.quality_shift != 64) {
 		info("\n");
 		info("Note: quality_shift was set to %d, but it usually is 33 or 64!",
-				params.quality_shift);
+			 params.quality_shift);
 	}
 
 	// The SimulationFiles and SimulationProfiles structures are
@@ -1872,3 +1942,4 @@ void pirs_simulate(int argc, char *argv[])
 	// closed, and dynamically allocated memory for the profiles being
 	// freed.
 }
+

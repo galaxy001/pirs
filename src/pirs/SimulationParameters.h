@@ -37,9 +37,10 @@ public:
 	bool user_specified_random_seed;
 	uint64_t random_seed;
 	int num_simulator_threads;
-	string output_prefix;
+	string output_directory;
 	const char **input_refs;
 	unsigned num_input_refs;
+	string indiv_name;
 
 	SimulationParameters(int argc, char **argv);
 };
@@ -66,3 +67,4 @@ class IndelProfile;
 
 
 #endif /* _SIMULATION_PARAMETERS_H */
+
