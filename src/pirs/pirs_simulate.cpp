@@ -201,7 +201,7 @@ static void pirs_simulate_usage()
 "                 several parameters, it is very difficult to determine exactly\n"
 "                 what needs to be done to make the error rate be a given\n"
 "                 value.  We try to adjust the probabilities of getting each\n"
-"                 quality score in order to accomodate the user-supplied error\n"
+"                 quality score in order to accommodate the user-supplied error\n"
 "                 rate.  However, depending on your input sequences, the actual\n"
 "                 error rate simulated by pIRS could be off by 20% or more.\n"
 "                 Please check the informational output to see the final error\n"
